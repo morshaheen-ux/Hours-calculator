@@ -1,0 +1,671 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DSP Hours Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: control bar → month KPIs → station × day grid (the core view) → tabs for drivers / days / issues */
+:root{
+  --bg:#f3f5f7; --surface:#ffffff; --ink:#18212b; --muted:#5d6b78; --line:#d9dfe5; --soft:#e9edf1;
+  --accent:#0f6e7a; --accent-ink:#ffffff; --accent-soft:#d6ecee;
+  --warn:#9a5b00; --warn-soft:#fbecd2; --bad:#a3302a; --bad-soft:#f8dedb; --ok:#2c7a3f;
+  --cell0:#eef2f4; --cell1:#c9e4e6; --cell2:#8fc8cc; --cell3:#4ea3aa; --cell4:#0f6e7a; --cellink-hi:#ffffff;
+  --f-display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11161b; --surface:#182027; --ink:#e4e9ee; --muted:#93a1ad; --line:#2a353f; --soft:#1f2931;
+  --accent:#4fb8c1; --accent-ink:#0b1a1d; --accent-soft:#16363a;
+  --warn:#e8b25a; --warn-soft:#3a2c14; --bad:#ef8a80; --bad-soft:#3d1f1c; --ok:#7ccf8e;
+  --cell0:#1d262d; --cell1:#173d42; --cell2:#1d5d64; --cell3:#2b8a93; --cell4:#4fb8c1; --cellink-hi:#0b1a1d;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11161b; --surface:#182027; --ink:#e4e9ee; --muted:#93a1ad; --line:#2a353f; --soft:#1f2931;
+  --accent:#4fb8c1; --accent-ink:#0b1a1d; --accent-soft:#16363a;
+  --warn:#e8b25a; --warn-soft:#3a2c14; --bad:#ef8a80; --bad-soft:#3d1f1c; --ok:#7ccf8e;
+  --cell0:#1d262d; --cell1:#173d42; --cell2:#1d5d64; --cell3:#2b8a93; --cell4:#4fb8c1; --cellink-hi:#0b1a1d;
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body);padding:0 16px}
+.wrap{max-width:1180px;margin:0 auto;padding-block:20px 48px;display:flex;flex-direction:column;gap:20px}
+h1,h2{font-family:var(--f-display);font-stretch:85%;letter-spacing:-.01em;margin:0;text-wrap:balance}
+h1{font-size:1.75rem;font-weight:800}
+h2{font-size:1.1rem;font-weight:700}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.label{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 20px}
+header p{margin:2px 0 0;color:var(--muted);font-size:.9rem}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:3px}
+select,button{font:inherit;font-size:.9rem;color:var(--ink)}
+select{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:7px 10px;min-width:0}
+button{cursor:pointer;border-radius:6px;border:1px solid var(--line);background:var(--surface);padding:7px 12px;font-weight:500}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+button.primary:hover{filter:brightness(1.08)}
+button:focus-visible,select:focus-visible,.drop:focus-visible,[role=tab]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button:disabled{opacity:.5;cursor:not-allowed}
+
+.drop{border:1.5px dashed var(--line);border-radius:10px;background:var(--surface);padding:16px 18px;display:flex;flex-wrap:wrap;align-items:center;gap:12px 18px;cursor:pointer;transition:border-color .15s,background .15s}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop .ico{width:38px;height:38px;border-radius:8px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;flex:none}
+.drop .txt{flex:1;min-width:200px}
+.drop strong{display:block}
+.drop small{color:var(--muted)}
+.status{font-size:.88rem;padding:9px 12px;border-radius:8px;background:var(--accent-soft);color:var(--ink)}
+.status.err{background:var(--bad-soft)}
+
+.kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.kpi{background:var(--surface);padding:14px 16px;display:flex;flex-direction:column;gap:2px}
+.kpi .v{font-family:var(--f-display);font-stretch:80%;font-weight:700;font-size:2rem;line-height:1.1;font-variant-numeric:tabular-nums}
+.kpi .v small{font-size:1rem;font-weight:500;color:var(--muted)}
+.kpi .s{font-size:.82rem;color:var(--muted)}
+.kpi.primary .v{color:var(--accent)}
+@media (max-width:1000px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:560px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi .v{font-size:clamp(1.5rem,3vw,2rem)}
+.legend #legendScale{display:contents}
+.list td.t{white-space:nowrap;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.list td.nw{white-space:nowrap}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px}
+.scroll{overflow-x:auto}
+
+/* station × day grid */
+table.grid{border-collapse:separate;border-spacing:2px;font-size:.78rem}
+.grid th{font-weight:500;color:var(--muted);text-align:center;padding:2px 0;font-family:var(--f-mono)}
+.grid th.st{text-align:left;padding-right:10px;font-family:var(--f-body);white-space:nowrap}
+.grid th.st b{display:block;color:var(--ink);font-weight:600;font-size:.85rem}
+.grid th.wk{color:var(--bad)}
+.grid td{width:38px;min-width:38px;height:34px;text-align:center;border-radius:4px;font-family:var(--f-mono);font-variant-numeric:tabular-nums;background:var(--cell0);color:var(--muted);position:relative}
+.grid td.c1{background:var(--cell1);color:var(--ink)}
+.grid td.c2{background:var(--cell2);color:var(--ink)}
+.grid td.c3{background:var(--cell3);color:var(--cellink-hi)}
+.grid td.c4{background:var(--cell4);color:var(--cellink-hi)}
+.grid td.flag::after{content:"";position:absolute;top:3px;right:3px;width:6px;height:6px;border-radius:50%;background:var(--warn);box-shadow:0 0 0 1.5px var(--surface)}
+.grid td.tot{background:none;color:var(--ink);font-weight:600;width:auto;padding:0 8px;text-align:right;white-space:nowrap}
+.grid td.missing{background:none;border:1px dashed var(--line)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.8rem;color:var(--muted);align-items:center}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:5px}
+
+/* tabs + tables */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+[role=tab]{border:none;border-bottom:2px solid transparent;border-radius:0;background:none;padding:8px 12px;color:var(--muted);font-weight:600}
+[role=tab][aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent)}
+[role=tab] .badge{margin-left:6px}
+table.list{width:100%;border-collapse:collapse;font-size:.88rem}
+.list th{text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+.list td{padding:8px 10px;border-bottom:1px solid var(--soft);vertical-align:top}
+.list td.r,.list th.r{text-align:right}
+.list tr:last-child td{border-bottom:none}
+.list tfoot td{font-weight:600;border-top:1px solid var(--line)}
+.badge{display:inline-block;font-size:.72rem;font-weight:600;padding:1px 7px;border-radius:999px;background:var(--soft);color:var(--muted);font-family:var(--f-body)}
+.badge.warn{background:var(--warn-soft);color:var(--warn)}
+.badge.bad{background:var(--bad-soft);color:var(--bad)}
+.issue{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--soft);font-size:.88rem}
+.issue:last-child{border-bottom:none}
+.issue .when{font-family:var(--f-mono);color:var(--muted);white-space:nowrap;min-width:92px}
+.diff.pos{color:var(--ok)} .diff.neg{color:var(--bad)}
+.rowbtn{padding:3px 9px;font-size:.8rem}
+.rowbtn.danger{color:var(--bad);border-color:var(--bad)}
+
+.settings{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;font-size:.85rem;color:var(--muted)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{border:none;border-radius:0;padding:5px 10px;font-size:.82rem}
+.seg button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+
+.empty{text-align:center;padding:36px 16px;color:var(--muted)}
+.empty strong{display:block;color:var(--ink);font-family:var(--f-display);font-stretch:85%;font-size:1.2rem;margin-bottom:4px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<style>body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style></head><body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>DSP Hours Ledger</h1>
+      <p>Upload each day's Amazon Service Details Report. Hours, kilometres and packages add up per station and month.</p>
+    </div>
+    <div class="controls">
+      <div class="field"><label class="label" for="fMonth">Month</label><select id="fMonth"></select></div>
+      <div class="field"><label class="label" for="fStation">Station</label><select id="fStation"></select></div>
+      <div class="field"><label class="label" for="fDsp">DSP</label><select id="fDsp"></select></div>
+      <button id="btnExport" type="button" hidden>Export CSV</button>
+    </div>
+  </header>
+
+  <div class="drop" id="drop" tabindex="0" role="button" aria-label="Upload Service Details Report files">
+    <div class="ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg></div>
+    <div class="txt"><strong>Drop Service Details Reports here, or click to choose</strong>
+      <small>CSV or Excel, one or several files. Uploading the same day and station again replaces it, so nothing is counted twice.</small></div>
+    <input type="file" id="file" accept=".csv,.xlsx,.xls" multiple hidden>
+  </div>
+  <div class="status" id="status" hidden role="status"></div>
+  <p class="muted" id="storeNote" style="margin:-8px 0 0;font-size:.8rem"></p>
+
+  <section class="kpis" aria-label="Month totals">
+    <div class="kpi primary"><span class="label">Actual hours</span><span class="v num" id="kActual">–</span><span class="s" id="kActualS">sign-in to sign-out</span></div>
+    <div class="kpi"><span class="label">Planned hours</span><span class="v num" id="kPlanned">–</span><span class="s" id="kPlannedS">Geplante Dauer</span></div>
+    <div class="kpi"><span class="label">Kilometres</span><span class="v num" id="kKm">–</span><span class="s" id="kKmS">planned distance</span></div>
+    <div class="kpi"><span class="label">Packages</span><span class="v num" id="kPkgs">–</span><span class="s" id="kPkgsS">&nbsp;</span></div>
+    <div class="kpi"><span class="label">Routes</span><span class="v num" id="kRoutes">–</span><span class="s" id="kRoutesS">&nbsp;</span></div>
+    <div class="kpi"><span class="label">Days uploaded</span><span class="v num" id="kDays">–</span><span class="s" id="kDaysS">&nbsp;</span></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2 id="gridTitle">Hours by station and day</h2>
+      <span class="seg" role="group" aria-label="Grid shows"><button type="button" data-metric="h" aria-pressed="true">Hours</button><button type="button" data-metric="km" aria-pressed="false">Km</button><button type="button" data-metric="pkgs" aria-pressed="false">Packages</button></span>
+    </div>
+    <div class="panel-head">
+      <div class="legend"><span id="legendScale"></span><span><i style="border:1px dashed var(--line)"></i>no upload</span><span><i style="background:var(--warn);border-radius:50%;width:8px;height:8px"></i>check issues</span></div>
+    </div>
+    <div class="scroll" id="gridWrap"></div>
+  </section>
+
+  <section class="panel">
+    <div class="tabs" role="tablist">
+      <button role="tab" id="tab-stations" aria-selected="true" type="button">Stations</button>
+      <button role="tab" id="tab-shifts" aria-selected="false" type="button">Shifts</button>
+      <button role="tab" id="tab-drivers" aria-selected="false" type="button">Drivers</button>
+      <button role="tab" id="tab-days" aria-selected="false" type="button">Uploaded days</button>
+      <button role="tab" id="tab-issues" aria-selected="false" type="button">Issues<span class="badge" id="issueCount">0</span></button>
+    </div>
+    <div class="settings">
+      <span>Missing sign-out:</span>
+      <span class="seg"><button type="button" id="mPlanned" aria-pressed="true">count planned duration</button><button type="button" id="mZero" aria-pressed="false">count 0 h</button></span>
+      <span>Overlapping shifts of the same driver are counted once.</span>
+    </div>
+    <div class="scroll" id="tabBody"></div>
+  </section>
+</div>
+<!--
+  DSP Hours Ledger — standalone version.
+  STORAGE: leave FIREBASE_CONFIG empty to save data in each browser (localStorage).
+  To share data across devices/people, paste your Firebase web config below
+  and allow read/write on the "days" collection in your Firestore rules.
+-->
+<script>
+window.FIREBASE_CONFIG = {
+  // apiKey: "",
+  // authDomain: "",
+  // projectId: "",
+  // appId: ""
+};
+</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+/* ---- Pure parsing + hours logic (also unit-tested in node) ---- */
+const H = {
+  date: ['datum', 'date'],
+  station: ['station'],
+  dsp: ['anbieterkurzcode', 'dspshortcode', 'providershortcode', 'anbieter'],
+  driver: ['zustellmitarbeiter', 'deliveryassociate', 'driver', 'transporter', 'fahrer'],
+  route: ['route', 'routecode'],
+  type: ['servicetyp', 'servicetype'],
+  planned: ['geplantedauer', 'plannedduration', 'duration'],
+  in: ['anmelden', 'login', 'signin', 'checkin'],
+  out: ['abmelden', 'logout', 'signout', 'checkout'],
+  pkgs: ['geplantepaketezugestellt', 'plannedpackagesdelivered', 'packagesdelivered'],
+  km: ['geplantegesamtentfernung', 'plannedtotaldistance', 'planneddistance'],
+  allowedKm: ['zulassigegesamtstrecke', 'allowedtotaldistance', 'alloweddistance'],
+  unit: ['entfernungseinheit', 'distanceunit'],
+  returned: ['zuruckgesandtepakete', 'returnedpackages', 'returned'],
+  pickups: ['paketezurabholung', 'packagesforpickup', 'pickups'],
+  excluded: ['ausgeschlossen', 'excluded']
+};
+function normKey(h) {
+  return String(h || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
+}
+function mapHeaders(headers) {
+  const m = {};
+  const keys = headers.map(normKey);
+  for (const f in H) {
+    let i = keys.findIndex(k => H[f].includes(k));
+    if (i < 0) i = keys.findIndex(k => H[f].some(a => k.startsWith(a)));
+    if (i >= 0) m[f] = headers[i];
+  }
+  return m;
+}
+const pad = n => String(n).padStart(2, '0');
+function parseDate(v) {
+  if (v == null || v === '') return null;
+  if (v instanceof Date && !isNaN(v)) return v.getFullYear() + '-' + pad(v.getMonth() + 1) + '-' + pad(v.getDate());
+  if (typeof v === 'number') { // Excel serial
+    const d = new Date(Math.round((v - 25569) * 864e5));
+    return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate());
+  }
+  const s = String(v).trim();
+  let m;
+  if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return m[1] + '-' + pad(m[2]) + '-' + pad(m[3]);
+  if ((m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/))) return m[3] + '-' + pad(m[1]) + '-' + pad(m[2]); // US m/d/yyyy (Amazon export)
+  if ((m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/))) return m[3] + '-' + pad(m[2]) + '-' + pad(m[1]); // German d.m.yyyy
+  return null;
+}
+function parseTime(v) {
+  if (v == null || v === '') return null;
+  if (v instanceof Date) return isNaN(v) ? null : v.getTime();
+  if (typeof v === 'number') return Math.round((v - 25569) * 864e5);
+  const t = Date.parse(String(v).trim());
+  return isNaN(t) ? null : t;
+}
+function parsePlanned(v) {
+  if (v == null || v === '') return 0;
+  if (typeof v === 'number') return v;
+  const m = String(v).replace(',', '.').match(/[\d.]+/);
+  return m ? parseFloat(m[0]) : 0;
+}
+function num(v) { if (v == null || v === '') return 0; const n = typeof v === 'number' ? v : parseFloat(String(v).replace(',', '.')); return isNaN(n) ? 0 : n; }
+function stationCode(s) {
+  const m = String(s || '').match(/\(([A-Z0-9]{3,6})\)/);
+  return m ? m[1] : String(s || 'UNKNOWN').replace(/[^A-Za-z0-9]/g, '').slice(0, 12) || 'UNKNOWN';
+}
+function stationName(s) {
+  return String(s || '').split(' - ')[0].replace(/\s*\([A-Z0-9]{3,6}\)\s*/, '').trim() || String(s || '');
+}
+/* sheet rows (array of objects keyed by header) -> normalized rows */
+function normalizeRows(objs) {
+  if (!objs.length) return { rows: [], missing: ['all columns'] };
+  const map = mapHeaders(Object.keys(objs[0]));
+  const missing = ['date', 'station', 'driver', 'in', 'out'].filter(f => !map[f]);
+  if (missing.length) return { rows: [], missing };
+  const rows = [];
+  for (const o of objs) {
+    const date = parseDate(o[map.date]);
+    if (!date) continue;
+    const ex = String(o[map.excluded] ?? '').trim().toLowerCase();
+    rows.push({
+      date,
+      station: String(o[map.station] || '').trim(),
+      dsp: String(o[map.dsp] || '').trim() || '—',
+      driver: String(o[map.driver] || '').trim() || 'Unassigned',
+      route: String(o[map.route] || '').trim(),
+      type: String(o[map.type] || '').trim(),
+      plannedH: parsePlanned(o[map.planned]),
+      inMs: parseTime(o[map.in]),
+      outMs: parseTime(o[map.out]),
+      pkgs: num(o[map.pkgs]),
+      km: num(o[map.km]),
+      allowedKm: num(o[map.allowedKm]),
+      unit: String(o[map.unit] || '').trim(),
+      returned: num(o[map.returned]),
+      pickups: num(o[map.pickups]),
+      excluded: ex === 'ja' || ex === 'yes' || ex === 'true'
+    });
+  }
+  return { rows, missing: [] };
+}
+/* group rows into day documents: one per date + station + DSP */
+function groupDays(rows) {
+  const out = {};
+  for (const r of rows) {
+    const code = stationCode(r.station);
+    const dsp = r.dsp.replace(/[^A-Za-z0-9-]/g, '') || 'NA';
+    const id = r.date + '__' + code + '__' + dsp;
+    if (!out[id]) out[id] = { date: r.date, month: r.date.slice(0, 7), code, stationName: stationName(r.station), dsp: r.dsp, rows: [] };
+    const { date, station, dsp: _d, ...rest } = r;
+    out[id].rows.push(rest);
+  }
+  return out;
+}
+/* hours for one day document. mode: 'planned' (missing sign-out -> sign-in + planned duration) or 'zero' */
+function computeDay(doc, mode) {
+  const res = { actualH: 0, plannedH: 0, routes: 0, km: 0, pkgs: 0, returned: 0, pickups: 0, drivers: {}, issues: [], shifts: [] };
+  const byDriver = {};
+  const D = n => (res.drivers[n] = res.drivers[n] || { actualH: 0, plannedH: 0, routes: 0, km: 0, pkgs: 0, returned: 0 });
+  for (const r of doc.rows) {
+    const label = (r.route || 'no route') + ' · ' + r.driver;
+    const sh = { driver: r.driver, route: r.route, type: r.type, inMs: r.inMs, outMs: r.outMs, plannedH: r.plannedH, km: r.km || 0, allowedKm: r.allowedKm || 0, pkgs: r.pkgs || 0, returned: r.returned || 0, pickups: r.pickups || 0, hours: null, note: '' };
+    res.shifts.push(sh);
+    if (r.excluded) { sh.note = 'excluded'; res.issues.push({ kind: 'excluded', text: label + ': marked excluded, not counted' }); continue; }
+    res.km += sh.km; res.pkgs += sh.pkgs; res.returned += sh.returned; res.pickups += sh.pickups;
+    const dd = D(r.driver); dd.km += sh.km; dd.pkgs += sh.pkgs; dd.returned += sh.returned;
+    if (r.inMs == null) { sh.note = 'nosignin'; res.issues.push({ kind: 'nosignin', text: label + ': no sign-in, not counted' }); continue; }
+    res.routes++; dd.routes++;
+    res.plannedH += r.plannedH; dd.plannedH += r.plannedH;
+    let end = r.outMs;
+    if (end == null) {
+      sh.note = 'nosignout';
+      if (mode === 'planned' && r.plannedH) {
+        end = r.inMs + r.plannedH * 3600e3;
+        res.issues.push({ kind: 'nosignout', text: label + ': no sign-out, counted planned ' + r.plannedH + ' h' });
+      } else {
+        res.issues.push({ kind: 'nosignout', text: label + ': no sign-out, counted 0 h' });
+        end = r.inMs;
+      }
+    }
+    if (end < r.inMs) { sh.note = 'bad'; res.issues.push({ kind: 'bad', text: label + ': sign-out before sign-in, not counted' }); end = r.inMs; }
+    sh.hours = (end - r.inMs) / 3600e3;
+    (byDriver[r.driver] = byDriver[r.driver] || []).push({ s: r.inMs, e: end, route: r.route, sh });
+  }
+  for (const d in byDriver) {
+    const iv = byDriver[d].sort((a, b) => a.s - b.s);
+    let total = 0, cur = null;
+    for (const x of iv) {
+      if (cur && x.s < cur.e) {
+        x.sh.note = x.sh.note || 'overlap';
+        x.sh.overlapWith = cur.routes.join(', ');
+        res.issues.push({ kind: 'overlap', text: x.route + ' · ' + d + ': overlaps ' + cur.routes.join(', ') + ', time counted once' });
+        cur.e = Math.max(cur.e, x.e); cur.routes.push(x.route);
+      } else {
+        if (cur) total += cur.e - cur.s;
+        cur = { s: x.s, e: x.e, routes: [x.route] };
+      }
+    }
+    if (cur) total += cur.e - cur.s;
+    const h = total / 3600e3;
+    D(d).actualH = h;
+    res.actualH += h;
+  }
+  return res;
+}
+/* ---- App ---- */
+const $ = id => document.getElementById(id);
+const state = { docs: {}, month: null, station: 'all', dsp: 'all', tab: 'stations', mode: 'planned', metric: 'h', db: null, canWrite: true, confirmDel: null, loaded: false };
+try { const m = localStorage.getItem('hl-mode'); if (m === 'zero' || m === 'planned') state.mode = m; } catch (e) {}
+
+const fmtH = h => (Math.round(h * 100) / 100).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtN = n => Math.round(n).toLocaleString('de-DE');
+const fmtHM = h => { const m = Math.round(h * 60); return Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0'); };
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const monthName = ym => { const [y, m] = ym.split('-'); return new Date(+y, +m - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }); };
+const dayLabel = d => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' });
+/* Report times end in Z (UTC); show them in German time */
+const berlin = ms => ms == null ? '—' : new Date(ms).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
+const signed = d => `<span class="diff ${d >= 0 ? 'pos' : 'neg'}">${d >= 0 ? '+' : '−'}${fmtH(Math.abs(d))}</span>`;
+
+function status(msg, err) { const s = $('status'); s.hidden = !msg; s.textContent = msg || ''; s.classList.toggle('err', !!err); }
+
+/* ---------- filters ---------- */
+function allDocs() { return Object.entries(state.docs).map(([id, d]) => ({ id, ...d })); }
+function filtered() {
+  return allDocs().filter(d => d.month === state.month && (state.station === 'all' || d.code === state.station) && (state.dsp === 'all' || d.dsp === state.dsp));
+}
+function fillSelect(sel, opts, val) {
+  sel.innerHTML = opts.map(o => `<option value="${esc(o[0])}"${o[0] === val ? ' selected' : ''}>${esc(o[1])}</option>`).join('');
+}
+function refreshFilters() {
+  const docs = allDocs();
+  const months = [...new Set(docs.map(d => d.month))].sort().reverse();
+  if (!months.includes(state.month)) state.month = months[0] || null;
+  fillSelect($('fMonth'), months.length ? months.map(m => [m, monthName(m)]) : [['', 'No data yet']], state.month || '');
+  const inMonth = docs.filter(d => d.month === state.month);
+  const stations = [...new Map(inMonth.map(d => [d.code, d.stationName])).entries()].sort();
+  if (state.station !== 'all' && !stations.some(s => s[0] === state.station)) state.station = 'all';
+  fillSelect($('fStation'), [['all', 'All stations'], ...stations.map(([c, n]) => [c, n + ' (' + c + ')'])], state.station);
+  const dsps = [...new Set(inMonth.map(d => d.dsp))].sort();
+  if (state.dsp !== 'all' && !dsps.includes(state.dsp)) state.dsp = 'all';
+  fillSelect($('fDsp'), [['all', 'All DSPs'], ...dsps.map(d => [d, d])], state.dsp);
+}
+
+/* ---------- aggregate ---------- */
+const SUMS = ['actualH', 'plannedH', 'routes', 'km', 'pkgs', 'returned', 'pickups'];
+const zero = () => Object.fromEntries(SUMS.map(k => [k, 0]));
+function addTo(t, r) { for (const k of SUMS) t[k] += r[k] || 0; }
+function aggregate(docs) {
+  const agg = { ...zero(), days: new Set(), stations: {}, drivers: {}, issues: [], perDay: [], shifts: [] };
+  for (const d of docs) {
+    const r = computeDay(d, state.mode);
+    addTo(agg, r); agg.days.add(d.date);
+    const sk = d.code + '|' + d.dsp;
+    const st = agg.stations[sk] = agg.stations[sk] || { code: d.code, name: d.stationName, dsp: d.dsp, ...zero(), days: 0, byDate: {}, flags: {} };
+    addTo(st, r); st.days++;
+    const bd = st.byDate[d.date] = st.byDate[d.date] || { h: 0, km: 0, pkgs: 0 };
+    bd.h += r.actualH; bd.km += r.km; bd.pkgs += r.pkgs;
+    if (r.issues.length) st.flags[d.date] = true;
+    for (const [name, v] of Object.entries(r.drivers)) {
+      const k = name + '|' + d.code;
+      const dr = agg.drivers[k] = agg.drivers[k] || { name, code: d.code, dsp: d.dsp, ...zero(), days: new Set() };
+      addTo(dr, v); dr.days.add(d.date);
+    }
+    for (const i of r.issues) agg.issues.push({ date: d.date, code: d.code, ...i });
+    for (const s of r.shifts) agg.shifts.push({ date: d.date, code: d.code, dsp: d.dsp, ...s });
+    agg.perDay.push({ doc: d, r });
+  }
+  return agg;
+}
+
+/* ---------- render ---------- */
+function render() {
+  refreshFilters();
+  const docs = filtered();
+  const has = docs.length > 0;
+  $('btnExport').hidden = !has;
+  const a = aggregate(docs);
+  $('kActual').innerHTML = has ? fmtH(a.actualH) + ' <small>h</small>' : '–';
+  $('kActualS').textContent = has ? fmtHM(a.actualH) + ' h:mm · sign-in to sign-out' : 'sign-in to sign-out';
+  $('kPlanned').innerHTML = has ? fmtH(a.plannedH) + ' <small>h</small>' : '–';
+  $('kPlannedS').innerHTML = has ? signed(a.actualH - a.plannedH) + ' h actual vs planned' : 'Geplante Dauer';
+  $('kKm').innerHTML = has ? fmtN(a.km) + ' <small>km</small>' : '–';
+  $('kKmS').textContent = has && a.routes ? fmtN(a.km / a.routes) + ' km per route · planned' : 'planned distance';
+  $('kPkgs').textContent = has ? fmtN(a.pkgs) : '–';
+  $('kPkgsS').textContent = has ? fmtN(a.returned) + ' returned · ' + fmtN(a.pickups) + ' pickups' : ' ';
+  $('kRoutes').textContent = has ? a.routes : '–';
+  $('kRoutesS').textContent = has ? Object.keys(a.drivers).length + ' drivers' : ' ';
+  let dim = 0;
+  if (state.month) { const [y, m] = state.month.split('-'); dim = new Date(+y, +m, 0).getDate(); }
+  $('kDays').innerHTML = has ? a.days.size + ' <small>/ ' + dim + '</small>' : '–';
+  $('kDaysS').textContent = has ? (dim - a.days.size ? (dim - a.days.size) + ' days without an upload' : 'every day uploaded') : ' ';
+  const mName = { h: 'Hours', km: 'Kilometres', pkgs: 'Packages' }[state.metric];
+  $('gridTitle').textContent = mName + ' by station and day' + (state.month ? ' · ' + monthName(state.month) : '');
+  document.querySelectorAll('[data-metric]').forEach(b => b.setAttribute('aria-pressed', b.dataset.metric === state.metric));
+  renderGrid(a, dim);
+  document.querySelectorAll('[role=tab]').forEach(t => t.setAttribute('aria-selected', t.id === 'tab-' + state.tab));
+  $('issueCount').textContent = a.issues.length;
+  $('issueCount').className = 'badge' + (a.issues.length ? ' warn' : '');
+  $('mPlanned').setAttribute('aria-pressed', state.mode === 'planned');
+  $('mZero').setAttribute('aria-pressed', state.mode === 'zero');
+  const body = $('tabBody');
+  if (!has) { body.innerHTML = ''; return; }
+  body.innerHTML = { stations: tStations, shifts: tShifts, drivers: tDrivers, days: tDays, issues: tIssues }[state.tab](a);
+}
+
+function renderGrid(a, dim) {
+  const wrap = $('gridWrap');
+  const sts = Object.values(a.stations).sort((x, y) => x.code.localeCompare(y.code) || x.dsp.localeCompare(y.dsp));
+  const met = state.metric;
+  if (!sts.length) {
+    $('legendScale').innerHTML = '';
+    wrap.innerHTML = state.loaded
+      ? `<div class="empty"><strong>No reports uploaded yet</strong>Drop a Service Details Report above. Each day you add fills one cell per station here, and the month totals update.</div>`
+      : `<div class="empty"><strong>Loading saved reports…</strong></div>`;
+    return;
+  }
+  let max = 0;
+  for (const s of sts) for (const v of Object.values(s.byDate)) max = Math.max(max, v[met]);
+  const step = max / 4 || 1;
+  const show = v => met === 'h' ? (Math.round(v * 10) / 10).toLocaleString('de-DE') : fmtN(v);
+  const unit = met === 'h' ? ' h' : met === 'km' ? ' km' : '';
+  $('legendScale').innerHTML = [1, 2, 3, 4].map(i => `<span><i style="background:var(--cell${i})"></i>${i === 4 ? 'up to ' + show(max) + unit : 'up to ' + show(step * i) + unit}</span>`).join('');
+  const [y, m] = state.month.split('-').map(Number);
+  let h = '<table class="grid"><thead><tr><th class="st">Station</th>';
+  for (let d = 1; d <= dim; d++) { const wd = new Date(y, m - 1, d).getDay(); h += `<th class="${wd === 0 ? 'wk' : ''}">${d}</th>`; }
+  h += '<th style="text-align:right;padding-right:8px">Total</th></tr></thead><tbody>';
+  for (const s of sts) {
+    h += `<tr><th class="st"><b>${esc(s.name)} ${esc(s.code)}</b>${esc(s.dsp)}</th>`;
+    for (let d = 1; d <= dim; d++) {
+      const key = state.month + '-' + String(d).padStart(2, '0');
+      const day = s.byDate[key];
+      if (!day) { h += `<td class="missing" title="${key}: no upload"></td>`; continue; }
+      const v = day[met];
+      const c = 'c' + Math.min(4, Math.max(1, Math.ceil(v / step)));
+      h += `<td class="${c}${s.flags[key] ? ' flag' : ''}" title="${key}: ${fmtH(day.h)} h · ${fmtN(day.km)} km · ${fmtN(day.pkgs)} packages${s.flags[key] ? ' (see issues)' : ''}">${show(v)}</td>`;
+    }
+    const tot = met === 'h' ? fmtH(s.actualH) + ' h' : met === 'km' ? fmtN(s.km) + ' km' : fmtN(s.pkgs);
+    h += `<td class="tot">${tot}</td></tr>`;
+  }
+  wrap.innerHTML = h + '</tbody></table>';
+}
+
+function tStations(a) {
+  const rows = Object.values(a.stations).sort((x, y) => y.actualH - x.actualH);
+  const row = (n, dsp, s, days) => `<td class="r num">${days}</td><td class="r num">${s.routes}</td><td class="r num">${fmtH(s.plannedH)}</td><td class="r num"><b>${fmtH(s.actualH)}</b></td><td class="r num">${fmtHM(s.actualH)}</td><td class="r num">${signed(s.actualH - s.plannedH)}</td><td class="r num">${fmtN(s.km)}</td><td class="r num">${fmtN(s.pkgs)}</td><td class="r num">${fmtN(s.returned)}</td><td class="r num">${fmtN(s.pickups)}</td>`;
+  let h = '<table class="list"><thead><tr><th>Station</th><th>DSP</th><th class="r">Days</th><th class="r">Routes</th><th class="r">Planned h</th><th class="r">Actual h</th><th class="r">h:mm</th><th class="r">Diff h</th><th class="r">Km</th><th class="r">Packages</th><th class="r">Returned</th><th class="r">Pickups</th></tr></thead><tbody>';
+  for (const s of rows) h += `<tr><td class="nw">${esc(s.name)} <span class="muted">${esc(s.code)}</span></td><td>${esc(s.dsp)}</td>${row(0, 0, s, s.days)}</tr>`;
+  return h + `</tbody><tfoot><tr><td>All</td><td></td>${row(0, 0, a, a.days.size)}</tr></tfoot></table>`;
+}
+function tShifts(a) {
+  const notes = { nosignout: ['No sign-out', 'warn'], nosignin: ['No sign-in', 'bad'], overlap: ['Overlap', ''], excluded: ['Excluded', ''], bad: ['Bad times', 'bad'] };
+  const rows = a.shifts.sort((x, y) => x.date.localeCompare(y.date) || x.code.localeCompare(y.code) || (x.inMs ?? 9e15) - (y.inMs ?? 9e15));
+  let h = '<table class="list"><thead><tr><th>Date</th><th>Station</th><th>Driver</th><th>Route</th><th>Service type</th><th class="r">In</th><th class="r">Out</th><th class="r">Hours</th><th class="r">Planned h</th><th class="r">Km</th><th class="r">Allowed km</th><th class="r">Packages</th><th class="r">Returned</th><th class="r">Pickups</th><th>Check</th></tr></thead><tbody>';
+  for (const s of rows) {
+    const n = notes[s.note];
+    const chk = n ? `<span class="badge ${n[1]}"${s.overlapWith ? ` title="Same time as ${esc(s.overlapWith)}"` : ''}>${n[0]}</span>` : '<span class="badge">OK</span>';
+    h += `<tr><td class="t">${dayLabel(s.date)}</td><td>${esc(s.code)}</td><td class="nw">${esc(s.driver)}</td><td class="t">${esc(s.route)}</td><td class="nw muted">${esc(s.type)}</td><td class="r t">${berlin(s.inMs)}</td><td class="r t">${berlin(s.outMs)}</td><td class="r num"><b>${s.hours == null ? '—' : fmtH(s.hours)}</b></td><td class="r num">${fmtH(s.plannedH)}</td><td class="r num">${fmtN(s.km)}</td><td class="r num">${s.allowedKm ? fmtN(s.allowedKm) : '—'}</td><td class="r num">${fmtN(s.pkgs)}</td><td class="r num">${fmtN(s.returned)}</td><td class="r num">${fmtN(s.pickups)}</td><td>${chk}</td></tr>`;
+  }
+  return h + '</tbody></table><p class="muted" style="font-size:.8rem;margin:8px 0 0">In and out are shown in German time. The report stores them in UTC (the Z at the end), which is 2 hours earlier in summer and 1 hour earlier in winter. Hours per route are before overlaps are merged.</p>';
+}
+function tDrivers(a) {
+  const rows = Object.values(a.drivers).sort((x, y) => y.actualH - x.actualH);
+  let h = '<table class="list"><thead><tr><th>Driver</th><th>Station</th><th class="r">Days</th><th class="r">Routes</th><th class="r">Planned h</th><th class="r">Actual h</th><th class="r">h:mm</th><th class="r">Km</th><th class="r">Packages</th><th class="r">Returned</th></tr></thead><tbody>';
+  for (const r of rows) h += `<tr><td class="nw">${esc(r.name)}</td><td>${esc(r.code)}</td><td class="r num">${r.days.size}</td><td class="r num">${r.routes}</td><td class="r num">${fmtH(r.plannedH)}</td><td class="r num"><b>${fmtH(r.actualH)}</b></td><td class="r num">${fmtHM(r.actualH)}</td><td class="r num">${fmtN(r.km)}</td><td class="r num">${fmtN(r.pkgs)}</td><td class="r num">${fmtN(r.returned)}</td></tr>`;
+  return h + '</tbody></table>';
+}
+function tDays(a) {
+  const rows = a.perDay.sort((x, y) => y.doc.date.localeCompare(x.doc.date) || x.doc.code.localeCompare(y.doc.code));
+  let h = '<table class="list"><thead><tr><th>Date</th><th>Station</th><th>DSP</th><th class="r">Routes</th><th class="r">Actual h</th><th class="r">Km</th><th class="r">Packages</th><th>Checks</th><th>File</th><th></th></tr></thead><tbody>';
+  for (const { doc, r } of rows) {
+    const confirming = state.confirmDel === doc.id;
+    const btn = !state.canWrite ? '' : confirming
+      ? `<button class="rowbtn danger" data-del="${esc(doc.id)}" type="button">Confirm remove</button> <button class="rowbtn" data-cancel="1" type="button">Keep</button>`
+      : `<button class="rowbtn" data-ask="${esc(doc.id)}" type="button">Remove</button>`;
+    h += `<tr><td class="t">${dayLabel(doc.date)}</td><td>${esc(doc.code)}</td><td>${esc(doc.dsp)}</td><td class="r num">${r.routes}</td><td class="r num"><b>${fmtH(r.actualH)}</b></td><td class="r num">${fmtN(r.km)}</td><td class="r num">${fmtN(r.pkgs)}</td><td>${r.issues.length ? `<span class="badge warn">${r.issues.length} to check</span>` : '<span class="badge">OK</span>'}</td><td class="muted" style="font-size:.8rem;max-width:220px;overflow-wrap:anywhere">${esc(doc.fileName || '')}</td><td class="nw">${btn}</td></tr>`;
+  }
+  return h + '</tbody></table>';
+}
+function tIssues(a) {
+  if (!a.issues.length) return '<div class="empty"><strong>Nothing to check</strong>Every route this month has a sign-in and sign-out.</div>';
+  const kinds = { nosignout: ['No sign-out', 'warn'], nosignin: ['No sign-in', 'bad'], overlap: ['Overlap', ''], excluded: ['Excluded', ''], bad: ['Bad times', 'bad'] };
+  return a.issues.sort((x, y) => x.date.localeCompare(y.date)).map(i => `<div class="issue"><span class="when">${dayLabel(i.date)}<br>${esc(i.code)}</span><span><span class="badge ${kinds[i.kind][1]}">${kinds[i.kind][0]}</span> ${esc(i.text)}</span></div>`).join('');
+}
+
+/* ---------- upload ---------- */
+async function readFile(file) {
+  let wb;
+  if (/\.csv$/i.test(file.name)) {
+    const txt = (await file.text()).replace(/^﻿/, '');
+    wb = XLSX.read(txt, { type: 'string', raw: true });
+  } else {
+    wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
+  }
+  return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '', raw: true });
+}
+async function handleFiles(files) {
+  if (!files.length) return;
+  if (!window.XLSX) { status('The file reader did not load. Reload the page and try again.', true); return; }
+  status('Reading ' + files.length + ' file' + (files.length > 1 ? 's' : '') + '…');
+  const days = {};
+  const problems = [];
+  for (const f of files) {
+    try {
+      const { rows, missing } = normalizeRows(await readFile(f));
+      if (missing.length) { problems.push(f.name + ' is missing columns: ' + missing.join(', ')); continue; }
+      if (!rows.length) { problems.push(f.name + ' has no rows with a date'); continue; }
+      const g = groupDays(rows);
+      for (const id in g) { if (days[id]) days[id].rows.push(...g[id].rows); else days[id] = { ...g[id], fileName: f.name }; }
+    } catch (e) { problems.push(f.name + ' could not be read (' + (e.message || e) + ')'); }
+  }
+  const ids = Object.keys(days);
+  if (!ids.length) { status(problems.join('. ') || 'No rows found.', true); return; }
+  let replaced = 0, saved = 0;
+  for (const id of ids) {
+    if (state.docs[id]) replaced++;
+    const body = { ...days[id], uploadedAt: new Date().toISOString() };
+    if (state.db) {
+      try { await state.db.collection('days').doc(id).set(body); saved++; }
+      catch (e) {
+        if (e && e.code === 'invalid_argument') { state.canWrite = false; status('You have view access only, so uploads can’t be saved. Ask the owner for edit access.', true); return; }
+        if (e && e.code === 'quota_exceeded') { status('Storage is full. Remove some old days, then upload again.', true); return; }
+        problems.push(id + ' not saved (' + (e && e.code || 'error') + ')');
+      }
+    } else { state.docs[id] = body; saved++; }
+  }
+  const months = [...new Set(ids.map(i => days[i].month))].sort();
+  state.month = months[months.length - 1];
+  const stations = [...new Set(ids.map(i => days[i].code))];
+  status(`Saved ${saved} day${saved === 1 ? '' : 's'} for ${stations.join(', ')}` + (replaced ? ` (${replaced} replaced an earlier upload)` : '') + (state.db ? '' : ', for this visit only because storage is not available here') + (problems.length ? '. ' + problems.join('. ') : '.'), problems.length > 0);
+  render();
+}
+
+/* ---------- export ---------- */
+async function exportCsv() {
+  const a = aggregate(filtered());
+  const q = s => '"' + String(s).replace(/"/g, '""') + '"';
+  const L = [['Section', 'Date', 'Station', 'DSP', 'Name', 'Route', 'In (German time)', 'Out (German time)', 'Days', 'Routes', 'Planned h', 'Actual h', 'h:mm', 'Km', 'Packages', 'Returned', 'Pickups'].join(';')];
+  const tail = t => [fmtH(t.plannedH), fmtH(t.actualH), fmtHM(t.actualH), fmtN(t.km), t.pkgs, t.returned, t.pickups].join(';');
+  for (const s of Object.values(a.stations)) L.push(['Station', '', s.code, s.dsp, q(s.name), '', '', '', s.days, s.routes, tail(s)].join(';'));
+  for (const d of Object.values(a.drivers)) L.push(['Driver', '', d.code, d.dsp, q(d.name), '', '', '', d.days.size, d.routes, tail(d)].join(';'));
+  for (const { doc, r } of a.perDay.sort((x, y) => x.doc.date.localeCompare(y.doc.date))) L.push(['Day', doc.date, doc.code, doc.dsp, '', '', '', '', 1, r.routes, tail(r)].join(';'));
+  for (const s of a.shifts) L.push(['Shift', s.date, s.code, s.dsp, q(s.driver), s.route, berlin(s.inMs), berlin(s.outMs), '', '', fmtH(s.plannedH), s.hours == null ? '' : fmtH(s.hours), s.hours == null ? '' : fmtHM(s.hours), s.km, s.pkgs, s.returned, s.pickups].join(';'));
+  L.push(['Total', '', '', '', '', '', '', '', a.days.size, a.routes, tail(a)].join(';'));
+  try {
+    await state.downloads.save({ filename: `hours-${state.month}${state.station !== 'all' ? '-' + state.station : ''}.csv`, data: '﻿' + L.join('\r\n') });
+  } catch (e) { if (e && e.code !== 'cancelled' && e.code !== 'declined') status('Export did not finish (' + (e.code || 'error') + ').', true); }
+}
+
+/* ---------- wiring ---------- */
+const drop = $('drop'), fileIn = $('file');
+drop.addEventListener('click', () => fileIn.click());
+drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileIn.click(); } });
+fileIn.addEventListener('change', () => { handleFiles([...fileIn.files]); fileIn.value = ''; });
+['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => handleFiles([...e.dataTransfer.files]));
+$('fMonth').addEventListener('change', e => { state.month = e.target.value; render(); });
+$('fStation').addEventListener('change', e => { state.station = e.target.value; render(); });
+$('fDsp').addEventListener('change', e => { state.dsp = e.target.value; render(); });
+document.querySelectorAll('[role=tab]').forEach(t => t.addEventListener('click', () => { state.tab = t.id.slice(4); render(); }));
+document.querySelectorAll('[data-metric]').forEach(b => b.addEventListener('click', () => { state.metric = b.dataset.metric; render(); }));
+const setMode = m => { state.mode = m; try { localStorage.setItem('hl-mode', m); } catch (e) {} render(); };
+$('mPlanned').addEventListener('click', () => setMode('planned'));
+$('mZero').addEventListener('click', () => setMode('zero'));
+$('btnExport').addEventListener('click', exportCsv);
+$('tabBody').addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.ask) { state.confirmDel = b.dataset.ask; render(); }
+  else if (b.dataset.cancel) { state.confirmDel = null; render(); }
+  else if (b.dataset.del) {
+    const id = b.dataset.del; state.confirmDel = null;
+    if (state.db) { try { await state.db.collection('days').doc(id).delete(); status('Removed ' + id.split('__').slice(0, 2).join(' · ') + '.'); } catch (err) { status('Could not remove that day (' + (err.code || 'error') + ').', true); } }
+    else { delete state.docs[id]; render(); }
+  }
+});
+
+render();
+
+/* ---------- storage: Firebase Firestore if configured, otherwise this browser ---------- */
+function localStore() {
+  const KEY = 'dsp-hours-days';
+  let data = {};
+  try { data = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) {}
+  const subs = [];
+  const emit = () => { const snap = { docs: Object.entries(data).map(([id, d]) => ({ id, data: () => d })) }; subs.forEach(f => f(snap)); };
+  const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { throw { code: 'quota_exceeded' }; } emit(); };
+  return { collection: () => ({
+    doc: id => ({ set: async body => { data[id] = body; persist(); }, delete: async () => { delete data[id]; persist(); } }),
+    onSnapshot: f => { subs.push(f); setTimeout(emit, 0); return () => {}; }
+  }) };
+}
+(function initStorage() {
+  const cfg = window.FIREBASE_CONFIG;
+  if (cfg && cfg.apiKey && window.firebase) {
+    try {
+      firebase.initializeApp(cfg);
+      state.db = firebase.firestore();
+      $('storeNote').textContent = 'Saved online (Firebase), shared with everyone who opens this page.';
+    } catch (e) { state.db = localStore(); $('storeNote').textContent = 'Firebase could not start, so data is saved in this browser only.'; }
+  } else {
+    state.db = localStore();
+    $('storeNote').textContent = 'Saved in this browser only. Add a Firebase config to share data across devices.';
+  }
+  state.db.collection('days').onSnapshot(snap => {
+    const next = {};
+    for (const d of snap.docs) next[d.id] = d.data();
+    state.docs = next; state.loaded = true; render();
+  }, err => { status('Saved reports stopped updating (' + (err.code || err.message) + '). Reload the page.', true); });
+})();
+</script></body></html>
