@@ -121,29 +121,77 @@ table.list{width:100%;border-collapse:collapse;font-size:.88rem}
 .empty strong{display:block;color:var(--ink);font-family:var(--f-display);font-stretch:85%;font-size:1.2rem;margin-bottom:4px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
-<style>body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style></head><body>
-<div class="wrap">
+<style>
+#companyView{display:flex;flex-direction:column;gap:20px}
+body{margin:0}[hidden]{display:none!important}
+input{font:inherit;font-size:.9rem;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:7px 10px;min-width:0;width:100%}
+input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.bar .grow{flex:1}
+.who{display:flex;gap:10px;align-items:center;font-size:.85rem}
+.banner{background:var(--warn-soft);color:var(--ink);border-radius:8px;padding:9px 12px;font-size:.85rem}
+.addco{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,2fr) auto;gap:10px;align-items:end}
+@media (max-width:640px){.addco{grid-template-columns:1fr}}
+.tablebar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;padding-bottom:8px}
+.rowbtn.primary{color:var(--accent-ink)}
+.linkbtn{border:none;background:none;color:var(--accent);padding:0;font-size:.85rem;justify-self:start}
+.login-wrap{min-height:100vh;display:grid;place-items:center;padding-block:24px}
+.login{width:100%;max-width:360px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:24px;display:grid;gap:14px}
+.login h1{font-size:1.5rem}
+.login p{margin:-8px 0 0}
+</style>
+</head><body>
+<!-- ============ LOGIN ============ -->
+<div class="login-wrap" id="login" hidden>
+  <form class="login" id="loginForm" novalidate>
+    <h1>DSP Hours Ledger</h1>
+    <p class="muted">Sign in to see and upload hours.</p>
+    <div class="field"><label class="label" for="lEmail">Email</label><input id="lEmail" type="email" autocomplete="username" required></div>
+    <div class="field"><label class="label" for="lPass">Password</label><input id="lPass" type="password" autocomplete="current-password" required></div>
+    <button class="primary" type="submit" id="lBtn">Sign in</button>
+    <button type="button" class="linkbtn" id="lReset">Forgot password?</button>
+    <div class="status err" id="lErr" hidden></div>
+  </form>
+</div>
+
+<!-- ============ APP ============ -->
+<div class="wrap" id="app" hidden>
+  <div class="banner" id="demoBanner" hidden>Demo mode: Firebase is not configured, so data is saved in this browser only and no password is needed. Add your Firebase config in the file to turn on login and online records.</div>
   <header>
     <div>
       <h1>DSP Hours Ledger</h1>
-      <p>Upload each day's Amazon Service Details Report. Hours, kilometres and packages add up per station and month.</p>
+      <p>Upload each day's Amazon Service Details Report. Hours, kilometres and packages add up per company, station and month.</p>
     </div>
-    <div class="controls">
-      <div class="field"><label class="label" for="fMonth">Month</label><select id="fMonth"></select></div>
-      <div class="field"><label class="label" for="fStation">Station</label><select id="fStation"></select></div>
-      <div class="field"><label class="label" for="fDsp">DSP</label><select id="fDsp"></select></div>
-      <button id="btnExport" type="button" hidden>Export CSV</button>
-    </div>
+    <div class="who"><span id="userEmail" class="muted"></span><button type="button" id="btnSignOut" class="rowbtn" hidden>Sign out</button></div>
   </header>
+
+  <div class="controls bar">
+    <div class="field"><label class="label" for="fCompany">Company</label><select id="fCompany"></select></div>
+    <div class="field"><label class="label" for="fMonth">Month</label><select id="fMonth"></select></div>
+    <div class="field" id="fStationF"><label class="label" for="fStation">Station</label><select id="fStation"></select></div>
+    <div class="field" id="fDspF"><label class="label" for="fDsp">DSP code</label><select id="fDsp"></select></div>
+    <span class="grow"></span>
+    <button id="btnCompanies" type="button" aria-expanded="false">Manage companies</button>
+    <button id="btnExport" type="button" hidden>Export CSV</button>
+  </div>
+
+  <section class="panel" id="companiesPanel" hidden>
+    <div class="panel-head"><h2>Companies</h2><span class="muted" style="font-size:.85rem">Uploads go to the company whose DSP code matches the report (for example GSFG). Without a match they go to the company selected above.</span></div>
+    <div class="scroll" id="companyList"></div>
+    <form class="addco" id="addCompany">
+      <div class="field"><label class="label" for="cName">Company name</label><input id="cName" placeholder="GSF GmbH" required></div>
+      <div class="field"><label class="label" for="cCodes">DSP codes (comma separated)</label><input id="cCodes" placeholder="GSFG"></div>
+      <button class="primary" type="submit">Add company</button>
+    </form>
+  </section>
 
   <div class="drop" id="drop" tabindex="0" role="button" aria-label="Upload Service Details Report files">
     <div class="ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg></div>
-    <div class="txt"><strong>Drop Service Details Reports here, or click to choose</strong>
-      <small>CSV or Excel, one or several files. Uploading the same day and station again replaces it, so nothing is counted twice.</small></div>
-    <input type="file" id="file" accept=".csv,.xlsx,.xls" multiple hidden>
+    <div class="txt"><strong>Drop Service Details Reports or ZIP files here, or click to choose</strong>
+      <small>CSV, Excel or ZIP (WinZip), one or several files. Every shift is checked against what is already saved, so duplicates are skipped and nothing is counted twice.</small></div>
+    <input type="file" id="file" accept=".csv,.xlsx,.xls,.zip,.zipx" multiple hidden>
   </div>
   <div class="status" id="status" hidden role="status"></div>
-  <p class="muted" id="storeNote" style="margin:-8px 0 0;font-size:.8rem"></p>
 
   <section class="kpis" aria-label="Month totals">
     <div class="kpi primary"><span class="label">Actual hours</span><span class="v num" id="kActual">–</span><span class="s" id="kActualS">sign-in to sign-out</span></div>
@@ -151,52 +199,73 @@ table.list{width:100%;border-collapse:collapse;font-size:.88rem}
     <div class="kpi"><span class="label">Kilometres</span><span class="v num" id="kKm">–</span><span class="s" id="kKmS">planned distance</span></div>
     <div class="kpi"><span class="label">Packages</span><span class="v num" id="kPkgs">–</span><span class="s" id="kPkgsS">&nbsp;</span></div>
     <div class="kpi"><span class="label">Routes</span><span class="v num" id="kRoutes">–</span><span class="s" id="kRoutesS">&nbsp;</span></div>
-    <div class="kpi"><span class="label">Days uploaded</span><span class="v num" id="kDays">–</span><span class="s" id="kDaysS">&nbsp;</span></div>
+    <div class="kpi"><span class="label" id="kDaysL">Days uploaded</span><span class="v num" id="kDays">–</span><span class="s" id="kDaysS">&nbsp;</span></div>
   </section>
 
-  <section class="panel">
-    <div class="panel-head">
-      <h2 id="gridTitle">Hours by station and day</h2>
-      <span class="seg" role="group" aria-label="Grid shows"><button type="button" data-metric="h" aria-pressed="true">Hours</button><button type="button" data-metric="km" aria-pressed="false">Km</button><button type="button" data-metric="pkgs" aria-pressed="false">Packages</button></span>
-    </div>
-    <div class="panel-head">
+  <section class="panel" id="overviewPanel" hidden>
+    <div class="panel-head"><h2 id="ovTitle">All companies</h2></div>
+    <div class="scroll" id="ovBody"></div>
+  </section>
+
+  <div id="companyView">
+    <section class="panel">
+      <div class="panel-head">
+        <h2 id="gridTitle">Hours by station and day</h2>
+        <span class="seg" role="group" aria-label="Grid shows"><button type="button" data-metric="h" aria-pressed="true">Hours</button><button type="button" data-metric="km" aria-pressed="false">Km</button><button type="button" data-metric="pkgs" aria-pressed="false">Packages</button></span>
+      </div>
       <div class="legend"><span id="legendScale"></span><span><i style="border:1px dashed var(--line)"></i>no upload</span><span><i style="background:var(--warn);border-radius:50%;width:8px;height:8px"></i>check issues</span></div>
-    </div>
-    <div class="scroll" id="gridWrap"></div>
-  </section>
+      <div class="scroll" id="gridWrap"></div>
+    </section>
 
-  <section class="panel">
-    <div class="tabs" role="tablist">
-      <button role="tab" id="tab-stations" aria-selected="true" type="button">Stations</button>
-      <button role="tab" id="tab-shifts" aria-selected="false" type="button">Shifts</button>
-      <button role="tab" id="tab-drivers" aria-selected="false" type="button">Drivers</button>
-      <button role="tab" id="tab-days" aria-selected="false" type="button">Uploaded days</button>
-      <button role="tab" id="tab-issues" aria-selected="false" type="button">Issues<span class="badge" id="issueCount">0</span></button>
-    </div>
-    <div class="settings">
-      <span>Missing sign-out:</span>
-      <span class="seg"><button type="button" id="mPlanned" aria-pressed="true">count planned duration</button><button type="button" id="mZero" aria-pressed="false">count 0 h</button></span>
-      <span>Overlapping shifts of the same driver are counted once.</span>
-    </div>
-    <div class="scroll" id="tabBody"></div>
-  </section>
+    <section class="panel">
+      <div class="tabs" role="tablist">
+        <button role="tab" id="tab-stations" aria-selected="true" type="button">Stations</button>
+        <button role="tab" id="tab-shifts" aria-selected="false" type="button">Shifts</button>
+        <button role="tab" id="tab-drivers" aria-selected="false" type="button">Drivers</button>
+        <button role="tab" id="tab-days" aria-selected="false" type="button">Uploaded days</button>
+        <button role="tab" id="tab-issues" aria-selected="false" type="button">Issues<span class="badge" id="issueCount">0</span></button>
+      </div>
+      <div class="settings">
+        <span>Missing sign-out:</span>
+        <span class="seg"><button type="button" id="mPlanned" aria-pressed="true">count planned duration</button><button type="button" id="mZero" aria-pressed="false">count 0 h</button></span>
+        <span>Overlapping shifts of the same driver are counted once.</span>
+      </div>
+      <div class="scroll" id="tabBody"></div>
+    </section>
+  </div>
 </div>
 <!--
-  DSP Hours Ledger — standalone version.
-  STORAGE: leave FIREBASE_CONFIG empty to save data in each browser (localStorage).
-  To share data across devices/people, paste your Firebase web config below
-  and allow read/write on the "days" collection in your Firestore rules.
+  =====================  FIREBASE SETUP  =====================
+  1. Firebase console > Project settings > Your apps > Web app: copy the config into FIREBASE_CONFIG below.
+  2. Authentication > Sign-in method: enable "Email/Password".
+     Authentication > Users > Add user: create the login(s) (email + password).
+  3. Firestore Database > Rules: paste
+        rules_version = '2';
+        service cloud.firestore {
+          match /databases/{database}/documents {
+            match /companies/{companyId} {
+              allow read, write: if request.auth != null;
+              match /days/{dayId} { allow read, write: if request.auth != null; }
+            }
+          }
+        }
+  Leave FIREBASE_CONFIG empty to run in demo mode (this browser only, no login).
+  ===========================================================
 -->
 <script>
 window.FIREBASE_CONFIG = {
-  // apiKey: "",
-  // authDomain: "",
-  // projectId: "",
-  // appId: ""
+  apiKey: "",
+  authDomain: "",
+  projectId: "",
+  storageBucket: "",
+  messagingSenderId: "",
+  appId: ""
 };
 </script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 /* ---- Pure parsing + hours logic (also unit-tested in node) ---- */
@@ -317,9 +386,9 @@ function computeDay(doc, mode) {
   const res = { actualH: 0, plannedH: 0, routes: 0, km: 0, pkgs: 0, returned: 0, pickups: 0, drivers: {}, issues: [], shifts: [] };
   const byDriver = {};
   const D = n => (res.drivers[n] = res.drivers[n] || { actualH: 0, plannedH: 0, routes: 0, km: 0, pkgs: 0, returned: 0 });
-  for (const r of doc.rows) {
+  for (const [idx, r] of doc.rows.entries()) {
     const label = (r.route || 'no route') + ' · ' + r.driver;
-    const sh = { driver: r.driver, route: r.route, type: r.type, inMs: r.inMs, outMs: r.outMs, plannedH: r.plannedH, km: r.km || 0, allowedKm: r.allowedKm || 0, pkgs: r.pkgs || 0, returned: r.returned || 0, pickups: r.pickups || 0, hours: null, note: '' };
+    const sh = { idx, driver: r.driver, route: r.route, type: r.type, inMs: r.inMs, outMs: r.outMs, plannedH: r.plannedH, km: r.km || 0, allowedKm: r.allowedKm || 0, pkgs: r.pkgs || 0, returned: r.returned || 0, pickups: r.pickups || 0, hours: null, note: '' };
     res.shifts.push(sh);
     if (r.excluded) { sh.note = 'excluded'; res.issues.push({ kind: 'excluded', text: label + ': marked excluded, not counted' }); continue; }
     res.km += sh.km; res.pkgs += sh.pkgs; res.returned += sh.returned; res.pickups += sh.pickups;
@@ -363,24 +432,128 @@ function computeDay(doc, mode) {
   }
   return res;
 }
-/* ---- App ---- */
+/* ---- duplicate protection: one row per date+station (doc) + driver + route + service type ---- */
+function rowKey(r) { return [r.driver, r.route, r.type].map(x => String(x || '').trim().toLowerCase()).join('|'); }
+function rowScore(r) { return (r.inMs != null ? 1 : 0) + (r.outMs != null ? 2 : 0) + ((r.pkgs || 0) > 0 ? 1 : 0) + ((r.km || 0) > 0 ? 1 : 0); }
+const sameRow = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+/* merge newRows into oldRows. Keeps the most complete version of each shift (newer wins a tie). */
+function mergeRows(oldRows, newRows) {
+  const map = new Map(); const order = [];
+  for (const r of oldRows || []) { const k = rowKey(r); if (!map.has(k)) order.push(k); map.set(k, r); }
+  let added = 0, updated = 0, dup = 0;
+  for (const r of newRows) {
+    const k = rowKey(r);
+    if (!map.has(k)) { map.set(k, r); order.push(k); added++; }
+    else if (sameRow(map.get(k), r)) dup++;
+    else if (rowScore(r) >= rowScore(map.get(k))) { map.set(k, r); updated++; }
+    else dup++;
+  }
+  return { rows: order.map(k => map.get(k)), added, updated, dup };
+}
+/* ================= App ================= */
 const $ = id => document.getElementById(id);
-const state = { docs: {}, month: null, station: 'all', dsp: 'all', tab: 'stations', mode: 'planned', metric: 'h', db: null, canWrite: true, confirmDel: null, loaded: false };
+const state = {
+  companies: [], company: null, docs: {}, month: null, station: 'all', dsp: 'all',
+  tab: 'stations', mode: 'planned', metric: 'h', confirm: null, loaded: false,
+  unsubDays: null, overview: null, store: null
+};
 try { const m = localStorage.getItem('hl-mode'); if (m === 'zero' || m === 'planned') state.mode = m; } catch (e) {}
+try { state.company = localStorage.getItem('hl-company'); } catch (e) {}
 
 const fmtH = h => (Math.round(h * 100) / 100).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtN = n => Math.round(n).toLocaleString('de-DE');
 const fmtHM = h => { const m = Math.round(h * 60); return Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0'); };
-const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const monthName = ym => { const [y, m] = ym.split('-'); return new Date(+y, +m - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }); };
 const dayLabel = d => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' });
 /* Report times end in Z (UTC); show them in German time */
 const berlin = ms => ms == null ? '—' : new Date(ms).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
 const signed = d => `<span class="diff ${d >= 0 ? 'pos' : 'neg'}">${d >= 0 ? '+' : '−'}${fmtH(Math.abs(d))}</span>`;
+const codesOf = c => (c.dspCodes || []).map(x => String(x).toUpperCase());
+const companyById = id => state.companies.find(c => c.id === id);
 
 function status(msg, err) { const s = $('status'); s.hidden = !msg; s.textContent = msg || ''; s.classList.toggle('err', !!err); }
 
-/* ---------- filters ---------- */
+/* inline two-step confirm: first click arms, second click runs */
+function confirmBtn(key, label, armedLabel) {
+  return state.confirm === key
+    ? `<button class="rowbtn danger" data-run="${esc(key)}" type="button">${armedLabel || 'Yes, delete'}</button> <button class="rowbtn" data-cancel="1" type="button">Keep</button>`
+    : `<button class="rowbtn" data-arm="${esc(key)}" type="button">${label}</button>`;
+}
+
+/* ================= Storage ================= */
+/* Firestore layout: companies/{companyId} {name, dspCodes[]}
+                     companies/{companyId}/days/{date__station__dsp} {date, month, code, stationName, dsp, rows[], fileName, uploadedAt} */
+function firebaseStore(fdb) {
+  const co = () => fdb.collection('companies');
+  const days = cid => co().doc(cid).collection('days');
+  async function deleteMany(refs) {
+    for (let i = 0; i < refs.length; i += 400) {
+      const b = fdb.batch(); refs.slice(i, i + 400).forEach(r => b.delete(r)); await b.commit();
+    }
+  }
+  return {
+    listenCompanies: (cb, err) => co().onSnapshot(s => cb(s.docs.map(d => ({ id: d.id, ...d.data() }))), err),
+    addCompany: data => co().add(data),
+    updateCompany: (id, data) => co().doc(id).update(data),
+    deleteCompany: async id => { const s = await days(id).get(); await deleteMany(s.docs.map(d => d.ref)); await co().doc(id).delete(); },
+    listenDays: (cid, cb, err) => days(cid).onSnapshot(s => { const o = {}; s.docs.forEach(d => o[d.id] = d.data()); cb(o); }, err),
+    setDay: (cid, id, body) => days(cid).doc(id).set(body),
+    getDay: async (cid, id) => { const d = await days(cid).doc(id).get(); return d.exists ? d.data() : null; },
+    deleteDays: (cid, ids) => deleteMany(ids.map(id => days(cid).doc(id))),
+    monthDays: async (cid, month) => (await days(cid).where('month', '==', month).get()).docs.map(d => ({ id: d.id, ...d.data() }))
+  };
+}
+function localStore() {
+  const KEY = 'dsp-hours-ledger-v2';
+  let data = { companies: {}, days: {} };
+  try { data = JSON.parse(localStorage.getItem(KEY)) || data; } catch (e) {}
+  const subsC = [], subsD = {};
+  const emit = () => {
+    const list = Object.entries(data.companies).map(([id, c]) => ({ id, ...c }));
+    subsC.forEach(f => f(list));
+    for (const cid in subsD) subsD[cid].forEach(f => f({ ...(data.days[cid] || {}) }));
+  };
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { throw { code: 'quota-exceeded', message: 'Browser storage is full' }; } emit(); };
+  return {
+    listenCompanies: cb => { subsC.push(cb); setTimeout(emit, 0); return () => {}; },
+    addCompany: async c => { const id = 'c' + Date.now().toString(36); data.companies[id] = c; save(); return { id }; },
+    updateCompany: async (id, c) => { Object.assign(data.companies[id], c); save(); },
+    deleteCompany: async id => { delete data.companies[id]; delete data.days[id]; save(); },
+    listenDays: (cid, cb) => { (subsD[cid] = subsD[cid] || []).push(cb); setTimeout(emit, 0); return () => { subsD[cid] = subsD[cid].filter(f => f !== cb); }; },
+    setDay: async (cid, id, body) => { (data.days[cid] = data.days[cid] || {})[id] = body; save(); },
+    getDay: async (cid, id) => (data.days[cid] || {})[id] || null,
+    deleteDays: async (cid, ids) => { ids.forEach(id => delete (data.days[cid] || {})[id]); save(); },
+    monthDays: async (cid, month) => Object.entries(data.days[cid] || {}).filter(([, d]) => d.month === month).map(([id, d]) => ({ id, ...d }))
+  };
+}
+
+/* ================= Company selection ================= */
+function selectCompany(id) {
+  state.company = id;
+  try { localStorage.setItem('hl-company', id || ''); } catch (e) {}
+  state.station = 'all'; state.dsp = 'all'; state.confirm = null;
+  if (state.unsubDays) { state.unsubDays(); state.unsubDays = null; }
+  state.docs = {}; state.loaded = false;
+  if (id && id !== 'all') {
+    state.unsubDays = state.store.listenDays(id, docs => { state.docs = docs; state.loaded = true; render(); }, e => status('Records stopped updating (' + (e.code || e.message) + '). Reload the page.', true));
+  } else if (id === 'all') { loadOverview(); }
+  render();
+}
+async function loadOverview() {
+  if (state.company !== 'all') return;
+  if (!state.month) state.month = new Date().toISOString().slice(0, 7);
+  const month = state.month;
+  state.overview = null; render();
+  const rows = [];
+  for (const c of state.companies) {
+    const docs = await state.store.monthDays(c.id, month);
+    rows.push({ c, a: aggregate(docs) });
+  }
+  if (state.company === 'all' && state.month === month) { state.overview = rows; render(); }
+}
+
+/* ================= Filters ================= */
 function allDocs() { return Object.entries(state.docs).map(([id, d]) => ({ id, ...d })); }
 function filtered() {
   return allDocs().filter(d => d.month === state.month && (state.station === 'all' || d.code === state.station) && (state.dsp === 'all' || d.dsp === state.dsp));
@@ -388,7 +561,22 @@ function filtered() {
 function fillSelect(sel, opts, val) {
   sel.innerHTML = opts.map(o => `<option value="${esc(o[0])}"${o[0] === val ? ' selected' : ''}>${esc(o[1])}</option>`).join('');
 }
+function lastMonths(n) {
+  const out = [], d = new Date(); d.setDate(1);
+  for (let i = 0; i < n; i++) { out.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')); d.setMonth(d.getMonth() - 1); }
+  return out;
+}
 function refreshFilters() {
+  const cos = [...state.companies].sort((a, b) => a.name.localeCompare(b.name));
+  fillSelect($('fCompany'), cos.length ? [...(cos.length > 1 ? [['all', 'All companies']] : []), ...cos.map(c => [c.id, c.name])] : [['', 'No companies yet']], state.company || '');
+  const overview = state.company === 'all';
+  $('fStationF').hidden = overview; $('fDspF').hidden = overview;
+  if (overview) {
+    const months = lastMonths(18);
+    if (!months.includes(state.month)) state.month = months[0];
+    fillSelect($('fMonth'), months.map(m => [m, monthName(m)]), state.month);
+    return;
+  }
   const docs = allDocs();
   const months = [...new Set(docs.map(d => d.month))].sort().reverse();
   if (!months.includes(state.month)) state.month = months[0] || null;
@@ -399,10 +587,10 @@ function refreshFilters() {
   fillSelect($('fStation'), [['all', 'All stations'], ...stations.map(([c, n]) => [c, n + ' (' + c + ')'])], state.station);
   const dsps = [...new Set(inMonth.map(d => d.dsp))].sort();
   if (state.dsp !== 'all' && !dsps.includes(state.dsp)) state.dsp = 'all';
-  fillSelect($('fDsp'), [['all', 'All DSPs'], ...dsps.map(d => [d, d])], state.dsp);
+  fillSelect($('fDsp'), [['all', 'All codes'], ...dsps.map(d => [d, d])], state.dsp);
 }
 
-/* ---------- aggregate ---------- */
+/* ================= Aggregate ================= */
 const SUMS = ['actualH', 'plannedH', 'routes', 'km', 'pkgs', 'returned', 'pickups'];
 const zero = () => Object.fromEntries(SUMS.map(k => [k, 0]));
 function addTo(t, r) { for (const k of SUMS) t[k] += r[k] || 0; }
@@ -423,19 +611,14 @@ function aggregate(docs) {
       addTo(dr, v); dr.days.add(d.date);
     }
     for (const i of r.issues) agg.issues.push({ date: d.date, code: d.code, ...i });
-    for (const s of r.shifts) agg.shifts.push({ date: d.date, code: d.code, dsp: d.dsp, ...s });
+    for (const s of r.shifts) agg.shifts.push({ dayId: d.id, date: d.date, code: d.code, dsp: d.dsp, ...s });
     agg.perDay.push({ doc: d, r });
   }
   return agg;
 }
 
-/* ---------- render ---------- */
-function render() {
-  refreshFilters();
-  const docs = filtered();
-  const has = docs.length > 0;
-  $('btnExport').hidden = !has;
-  const a = aggregate(docs);
+/* ================= Render ================= */
+function setKpis(a, has, daysText, daysSub) {
   $('kActual').innerHTML = has ? fmtH(a.actualH) + ' <small>h</small>' : '–';
   $('kActualS').textContent = has ? fmtHM(a.actualH) + ' h:mm · sign-in to sign-out' : 'sign-in to sign-out';
   $('kPlanned').innerHTML = has ? fmtH(a.plannedH) + ' <small>h</small>' : '–';
@@ -446,10 +629,26 @@ function render() {
   $('kPkgsS').textContent = has ? fmtN(a.returned) + ' returned · ' + fmtN(a.pickups) + ' pickups' : ' ';
   $('kRoutes').textContent = has ? a.routes : '–';
   $('kRoutesS').textContent = has ? Object.keys(a.drivers).length + ' drivers' : ' ';
+  $('kDays').innerHTML = has ? daysText : '–';
+  $('kDaysS').textContent = has ? daysSub : ' ';
+}
+function render() {
+  refreshFilters();
+  renderCompanies();
+  const overview = state.company === 'all';
+  $('overviewPanel').hidden = !overview;
+  $('companyView').hidden = overview;
+  $('drop').hidden = !state.companies.length;
+  if (overview) return renderOverview();
+
+  const docs = filtered();
+  const has = docs.length > 0;
+  $('btnExport').hidden = !has;
+  const a = aggregate(docs);
   let dim = 0;
   if (state.month) { const [y, m] = state.month.split('-'); dim = new Date(+y, +m, 0).getDate(); }
-  $('kDays').innerHTML = has ? a.days.size + ' <small>/ ' + dim + '</small>' : '–';
-  $('kDaysS').textContent = has ? (dim - a.days.size ? (dim - a.days.size) + ' days without an upload' : 'every day uploaded') : ' ';
+  $('kDaysL').textContent = 'Days uploaded';
+  setKpis(a, has, a.days.size + ' <small>/ ' + dim + '</small>', dim - a.days.size ? (dim - a.days.size) + ' days without an upload' : 'every day uploaded');
   const mName = { h: 'Hours', km: 'Kilometres', pkgs: 'Packages' }[state.metric];
   $('gridTitle').textContent = mName + ' by station and day' + (state.month ? ' · ' + monthName(state.month) : '');
   document.querySelectorAll('[data-metric]').forEach(b => b.setAttribute('aria-pressed', b.dataset.metric === state.metric));
@@ -459,9 +658,41 @@ function render() {
   $('issueCount').className = 'badge' + (a.issues.length ? ' warn' : '');
   $('mPlanned').setAttribute('aria-pressed', state.mode === 'planned');
   $('mZero').setAttribute('aria-pressed', state.mode === 'zero');
-  const body = $('tabBody');
-  if (!has) { body.innerHTML = ''; return; }
-  body.innerHTML = { stations: tStations, shifts: tShifts, drivers: tDrivers, days: tDays, issues: tIssues }[state.tab](a);
+  $('tabBody').innerHTML = has ? { stations: tStations, shifts: tShifts, drivers: tDrivers, days: tDays, issues: tIssues }[state.tab](a) : '';
+}
+
+function renderOverview() {
+  $('btnExport').hidden = !state.overview;
+  $('ovTitle').textContent = 'All companies · ' + monthName(state.month);
+  if (!state.overview) { setKpis(zero(), false); $('ovBody').innerHTML = '<div class="empty"><strong>Adding up all companies…</strong></div>'; return; }
+  const tot = { ...zero(), drivers: {} }; let days = 0;
+  for (const { a } of state.overview) { addTo(tot, a); Object.assign(tot.drivers, a.drivers); days += a.perDay.length; }
+  $('kDaysL').textContent = 'Station-days';
+  setKpis(tot, days > 0, String(days), state.overview.filter(o => o.a.perDay.length).length + ' of ' + state.overview.length + ' companies with data');
+  let h = '<table class="list"><thead><tr><th>Company</th><th>DSP codes</th><th class="r">Station-days</th><th class="r">Routes</th><th class="r">Planned h</th><th class="r">Actual h</th><th class="r">h:mm</th><th class="r">Km</th><th class="r">Packages</th><th class="r">Returned</th><th></th></tr></thead><tbody>';
+  for (const { c, a } of state.overview.sort((x, y) => y.a.actualH - x.a.actualH)) {
+    h += `<tr><td class="nw"><b>${esc(c.name)}</b></td><td class="muted">${esc(codesOf(c).join(', ') || '—')}</td><td class="r num">${a.perDay.length}</td><td class="r num">${a.routes}</td><td class="r num">${fmtH(a.plannedH)}</td><td class="r num"><b>${fmtH(a.actualH)}</b></td><td class="r num">${fmtHM(a.actualH)}</td><td class="r num">${fmtN(a.km)}</td><td class="r num">${fmtN(a.pkgs)}</td><td class="r num">${fmtN(a.returned)}</td><td><button class="rowbtn" data-open="${esc(c.id)}" type="button">Open</button></td></tr>`;
+  }
+  h += `</tbody><tfoot><tr><td>All</td><td></td><td class="r num">${days}</td><td class="r num">${tot.routes}</td><td class="r num">${fmtH(tot.plannedH)}</td><td class="r num">${fmtH(tot.actualH)}</td><td class="r num">${fmtHM(tot.actualH)}</td><td class="r num">${fmtN(tot.km)}</td><td class="r num">${fmtN(tot.pkgs)}</td><td class="r num">${fmtN(tot.returned)}</td><td></td></tr></tfoot></table>`;
+  $('ovBody').innerHTML = h;
+}
+
+function renderCompanies() {
+  const list = $('companyList');
+  if (!state.companies.length) {
+    list.innerHTML = '<div class="empty"><strong>Add your first company</strong>Give it a name and the DSP short code from the reports (the Anbieter-Kurzcode column), then start uploading.</div>';
+    $('companiesPanel').hidden = false; $('btnCompanies').setAttribute('aria-expanded', 'true');
+    return;
+  }
+  let h = '<table class="list"><thead><tr><th>Name</th><th>DSP codes</th><th></th></tr></thead><tbody>';
+  for (const c of [...state.companies].sort((a, b) => a.name.localeCompare(b.name))) {
+    if (state.confirm === 'edit:' + c.id) {
+      h += `<tr><td><input id="eName-${esc(c.id)}" value="${esc(c.name)}" aria-label="Company name"></td><td><input id="eCodes-${esc(c.id)}" value="${esc(codesOf(c).join(', '))}" aria-label="DSP codes"></td><td class="nw"><button class="rowbtn primary" data-save="${esc(c.id)}" type="button">Save</button> <button class="rowbtn" data-cancel="1" type="button">Cancel</button></td></tr>`;
+    } else {
+      h += `<tr><td><b>${esc(c.name)}</b></td><td class="muted">${esc(codesOf(c).join(', ') || '—')}</td><td class="nw"><button class="rowbtn" data-arm="edit:${esc(c.id)}" type="button">Edit</button> ${confirmBtn('company:' + c.id, 'Delete', 'Delete company and all its records')}</td></tr>`;
+    }
+  }
+  list.innerHTML = h + '</tbody></table>';
 }
 
 function renderGrid(a, dim) {
@@ -470,9 +701,9 @@ function renderGrid(a, dim) {
   const met = state.metric;
   if (!sts.length) {
     $('legendScale').innerHTML = '';
-    wrap.innerHTML = state.loaded
-      ? `<div class="empty"><strong>No reports uploaded yet</strong>Drop a Service Details Report above. Each day you add fills one cell per station here, and the month totals update.</div>`
-      : `<div class="empty"><strong>Loading saved reports…</strong></div>`;
+    wrap.innerHTML = !state.companies.length ? '' : state.loaded
+      ? `<div class="empty"><strong>No reports for ${esc(companyById(state.company)?.name || 'this company')} yet</strong>Drop a Service Details Report above. Each day you add fills one cell per station here, and the month totals update.</div>`
+      : `<div class="empty"><strong>Loading records…</strong></div>`;
     return;
   }
   let max = 0;
@@ -480,7 +711,7 @@ function renderGrid(a, dim) {
   const step = max / 4 || 1;
   const show = v => met === 'h' ? (Math.round(v * 10) / 10).toLocaleString('de-DE') : fmtN(v);
   const unit = met === 'h' ? ' h' : met === 'km' ? ' km' : '';
-  $('legendScale').innerHTML = [1, 2, 3, 4].map(i => `<span><i style="background:var(--cell${i})"></i>${i === 4 ? 'up to ' + show(max) + unit : 'up to ' + show(step * i) + unit}</span>`).join('');
+  $('legendScale').innerHTML = [1, 2, 3, 4].map(i => `<span><i style="background:var(--cell${i})"></i>up to ${show(i === 4 ? max : step * i)}${unit}</span>`).join('');
   const [y, m] = state.month.split('-').map(Number);
   let h = '<table class="grid"><thead><tr><th class="st">Station</th>';
   for (let d = 1; d <= dim; d++) { const wd = new Date(y, m - 1, d).getDay(); h += `<th class="${wd === 0 ? 'wk' : ''}">${d}</th>`; }
@@ -503,19 +734,19 @@ function renderGrid(a, dim) {
 
 function tStations(a) {
   const rows = Object.values(a.stations).sort((x, y) => y.actualH - x.actualH);
-  const row = (n, dsp, s, days) => `<td class="r num">${days}</td><td class="r num">${s.routes}</td><td class="r num">${fmtH(s.plannedH)}</td><td class="r num"><b>${fmtH(s.actualH)}</b></td><td class="r num">${fmtHM(s.actualH)}</td><td class="r num">${signed(s.actualH - s.plannedH)}</td><td class="r num">${fmtN(s.km)}</td><td class="r num">${fmtN(s.pkgs)}</td><td class="r num">${fmtN(s.returned)}</td><td class="r num">${fmtN(s.pickups)}</td>`;
+  const row = (s, days) => `<td class="r num">${days}</td><td class="r num">${s.routes}</td><td class="r num">${fmtH(s.plannedH)}</td><td class="r num"><b>${fmtH(s.actualH)}</b></td><td class="r num">${fmtHM(s.actualH)}</td><td class="r num">${signed(s.actualH - s.plannedH)}</td><td class="r num">${fmtN(s.km)}</td><td class="r num">${fmtN(s.pkgs)}</td><td class="r num">${fmtN(s.returned)}</td><td class="r num">${fmtN(s.pickups)}</td>`;
   let h = '<table class="list"><thead><tr><th>Station</th><th>DSP</th><th class="r">Days</th><th class="r">Routes</th><th class="r">Planned h</th><th class="r">Actual h</th><th class="r">h:mm</th><th class="r">Diff h</th><th class="r">Km</th><th class="r">Packages</th><th class="r">Returned</th><th class="r">Pickups</th></tr></thead><tbody>';
-  for (const s of rows) h += `<tr><td class="nw">${esc(s.name)} <span class="muted">${esc(s.code)}</span></td><td>${esc(s.dsp)}</td>${row(0, 0, s, s.days)}</tr>`;
-  return h + `</tbody><tfoot><tr><td>All</td><td></td>${row(0, 0, a, a.days.size)}</tr></tfoot></table>`;
+  for (const s of rows) h += `<tr><td class="nw">${esc(s.name)} <span class="muted">${esc(s.code)}</span></td><td>${esc(s.dsp)}</td>${row(s, s.days)}</tr>`;
+  return h + `</tbody><tfoot><tr><td>All</td><td></td>${row(a, a.days.size)}</tr></tfoot></table>`;
 }
+const NOTES = { nosignout: ['No sign-out', 'warn'], nosignin: ['No sign-in', 'bad'], overlap: ['Overlap', ''], excluded: ['Excluded', ''], bad: ['Bad times', 'bad'] };
 function tShifts(a) {
-  const notes = { nosignout: ['No sign-out', 'warn'], nosignin: ['No sign-in', 'bad'], overlap: ['Overlap', ''], excluded: ['Excluded', ''], bad: ['Bad times', 'bad'] };
   const rows = a.shifts.sort((x, y) => x.date.localeCompare(y.date) || x.code.localeCompare(y.code) || (x.inMs ?? 9e15) - (y.inMs ?? 9e15));
-  let h = '<table class="list"><thead><tr><th>Date</th><th>Station</th><th>Driver</th><th>Route</th><th>Service type</th><th class="r">In</th><th class="r">Out</th><th class="r">Hours</th><th class="r">Planned h</th><th class="r">Km</th><th class="r">Allowed km</th><th class="r">Packages</th><th class="r">Returned</th><th class="r">Pickups</th><th>Check</th></tr></thead><tbody>';
+  let h = '<table class="list"><thead><tr><th>Date</th><th>Station</th><th>Driver</th><th>Route</th><th>Service type</th><th class="r">In</th><th class="r">Out</th><th class="r">Hours</th><th class="r">Planned h</th><th class="r">Km</th><th class="r">Allowed km</th><th class="r">Packages</th><th class="r">Returned</th><th class="r">Pickups</th><th>Check</th><th></th></tr></thead><tbody>';
   for (const s of rows) {
-    const n = notes[s.note];
+    const n = NOTES[s.note];
     const chk = n ? `<span class="badge ${n[1]}"${s.overlapWith ? ` title="Same time as ${esc(s.overlapWith)}"` : ''}>${n[0]}</span>` : '<span class="badge">OK</span>';
-    h += `<tr><td class="t">${dayLabel(s.date)}</td><td>${esc(s.code)}</td><td class="nw">${esc(s.driver)}</td><td class="t">${esc(s.route)}</td><td class="nw muted">${esc(s.type)}</td><td class="r t">${berlin(s.inMs)}</td><td class="r t">${berlin(s.outMs)}</td><td class="r num"><b>${s.hours == null ? '—' : fmtH(s.hours)}</b></td><td class="r num">${fmtH(s.plannedH)}</td><td class="r num">${fmtN(s.km)}</td><td class="r num">${s.allowedKm ? fmtN(s.allowedKm) : '—'}</td><td class="r num">${fmtN(s.pkgs)}</td><td class="r num">${fmtN(s.returned)}</td><td class="r num">${fmtN(s.pickups)}</td><td>${chk}</td></tr>`;
+    h += `<tr><td class="t">${dayLabel(s.date)}</td><td>${esc(s.code)}</td><td class="nw">${esc(s.driver)}</td><td class="t">${esc(s.route)}</td><td class="nw muted">${esc(s.type)}</td><td class="r t">${berlin(s.inMs)}</td><td class="r t">${berlin(s.outMs)}</td><td class="r num"><b>${s.hours == null ? '—' : fmtH(s.hours)}</b></td><td class="r num">${fmtH(s.plannedH)}</td><td class="r num">${fmtN(s.km)}</td><td class="r num">${s.allowedKm ? fmtN(s.allowedKm) : '—'}</td><td class="r num">${fmtN(s.pkgs)}</td><td class="r num">${fmtN(s.returned)}</td><td class="r num">${fmtN(s.pickups)}</td><td>${chk}</td><td class="nw">${confirmBtn('shift:' + s.dayId + ':' + s.idx, 'Delete')}</td></tr>`;
   }
   return h + '</tbody></table><p class="muted" style="font-size:.8rem;margin:8px 0 0">In and out are shown in German time. The report stores them in UTC (the Z at the end), which is 2 hours earlier in summer and 1 hour earlier in winter. Hours per route are before overlaps are merged.</p>';
 }
@@ -527,23 +758,78 @@ function tDrivers(a) {
 }
 function tDays(a) {
   const rows = a.perDay.sort((x, y) => y.doc.date.localeCompare(x.doc.date) || x.doc.code.localeCompare(y.doc.code));
-  let h = '<table class="list"><thead><tr><th>Date</th><th>Station</th><th>DSP</th><th class="r">Routes</th><th class="r">Actual h</th><th class="r">Km</th><th class="r">Packages</th><th>Checks</th><th>File</th><th></th></tr></thead><tbody>';
+  const scope = monthName(state.month) + (state.station !== 'all' ? ' · ' + state.station : '') + (state.dsp !== 'all' ? ' · ' + state.dsp : '');
+  let h = `<div class="tablebar"><span class="muted">${rows.length} day${rows.length === 1 ? '' : 's'} shown for ${esc(scope)}</span>${confirmBtn('month', 'Delete all shown days', 'Yes, delete ' + rows.length + ' days')}</div>`;
+  h += '<table class="list"><thead><tr><th>Date</th><th>Station</th><th>DSP</th><th class="r">Routes</th><th class="r">Actual h</th><th class="r">Km</th><th class="r">Packages</th><th>Checks</th><th>File</th><th>Uploaded</th><th></th></tr></thead><tbody>';
   for (const { doc, r } of rows) {
-    const confirming = state.confirmDel === doc.id;
-    const btn = !state.canWrite ? '' : confirming
-      ? `<button class="rowbtn danger" data-del="${esc(doc.id)}" type="button">Confirm remove</button> <button class="rowbtn" data-cancel="1" type="button">Keep</button>`
-      : `<button class="rowbtn" data-ask="${esc(doc.id)}" type="button">Remove</button>`;
-    h += `<tr><td class="t">${dayLabel(doc.date)}</td><td>${esc(doc.code)}</td><td>${esc(doc.dsp)}</td><td class="r num">${r.routes}</td><td class="r num"><b>${fmtH(r.actualH)}</b></td><td class="r num">${fmtN(r.km)}</td><td class="r num">${fmtN(r.pkgs)}</td><td>${r.issues.length ? `<span class="badge warn">${r.issues.length} to check</span>` : '<span class="badge">OK</span>'}</td><td class="muted" style="font-size:.8rem;max-width:220px;overflow-wrap:anywhere">${esc(doc.fileName || '')}</td><td class="nw">${btn}</td></tr>`;
+    const up = doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) : '';
+    h += `<tr><td class="t">${dayLabel(doc.date)}</td><td>${esc(doc.code)}</td><td>${esc(doc.dsp)}</td><td class="r num">${r.routes}</td><td class="r num"><b>${fmtH(r.actualH)}</b></td><td class="r num">${fmtN(r.km)}</td><td class="r num">${fmtN(r.pkgs)}</td><td>${r.issues.length ? `<span class="badge warn">${r.issues.length} to check</span>` : '<span class="badge">OK</span>'}</td><td class="muted" style="font-size:.8rem;max-width:200px;overflow-wrap:anywhere">${esc(doc.fileName || '')}</td><td class="muted nw" style="font-size:.8rem">${esc(up)}${doc.uploadedBy ? '<br>' + esc(doc.uploadedBy) : ''}</td><td class="nw">${confirmBtn('day:' + doc.id, 'Delete')}</td></tr>`;
   }
   return h + '</tbody></table>';
 }
 function tIssues(a) {
   if (!a.issues.length) return '<div class="empty"><strong>Nothing to check</strong>Every route this month has a sign-in and sign-out.</div>';
-  const kinds = { nosignout: ['No sign-out', 'warn'], nosignin: ['No sign-in', 'bad'], overlap: ['Overlap', ''], excluded: ['Excluded', ''], bad: ['Bad times', 'bad'] };
-  return a.issues.sort((x, y) => x.date.localeCompare(y.date)).map(i => `<div class="issue"><span class="when">${dayLabel(i.date)}<br>${esc(i.code)}</span><span><span class="badge ${kinds[i.kind][1]}">${kinds[i.kind][0]}</span> ${esc(i.text)}</span></div>`).join('');
+  return a.issues.sort((x, y) => x.date.localeCompare(y.date)).map(i => `<div class="issue"><span class="when">${dayLabel(i.date)}<br>${esc(i.code)}</span><span><span class="badge ${NOTES[i.kind][1]}">${NOTES[i.kind][0]}</span> ${esc(i.text)}</span></div>`).join('');
 }
 
-/* ---------- upload ---------- */
+/* ================= Actions ================= */
+async function runAction(key) {
+  state.confirm = null;
+  const cid = state.company;
+  try {
+    if (key.startsWith('day:')) {
+      await state.store.deleteDays(cid, [key.slice(4)]); status('Day deleted.');
+    } else if (key === 'month') {
+      const ids = filtered().map(d => d.id);
+      await state.store.deleteDays(cid, ids); status(ids.length + ' days deleted.');
+    } else if (key.startsWith('shift:')) {
+      const [, dayId, idx] = key.split(':');
+      const doc = state.docs[dayId]; if (!doc) return;
+      const rows = doc.rows.filter((_, j) => j !== +idx);
+      if (rows.length) await state.store.setDay(cid, dayId, { ...doc, rows }); else await state.store.deleteDays(cid, [dayId]);
+      status('Shift deleted.');
+    } else if (key.startsWith('company:')) {
+      const id = key.slice(8), name = companyById(id)?.name;
+      status('Deleting ' + name + '…');
+      if (state.company === id) selectCompany(null);
+      await state.store.deleteCompany(id); status(name + ' and its records were deleted.');
+    }
+  } catch (e) { status('That did not work (' + (e.code || e.message || 'error') + ').', true); }
+  render();
+}
+
+/* ================= Upload ================= */
+const isSheet = n => /\.(csv|xlsx|xls)$/i.test(n);
+const isZip = n => /\.(zip|zipx)$/i.test(n);
+/* Turn the chosen files into a flat list of report files, opening zip archives (also zips inside zips) */
+async function expandFiles(files, problems, depth = 0) {
+  const out = [];
+  for (const f of files) {
+    if (isSheet(f.name)) { out.push(f); continue; }
+    if (!isZip(f.name)) { problems.push(f.name + ' was skipped (only CSV, Excel and ZIP files are read)'); continue; }
+    if (!window.JSZip) { problems.push('The zip reader did not load, so ' + f.name + ' was skipped. Check the internet connection and reload'); continue; }
+    try {
+      const zip = await JSZip.loadAsync(await f.arrayBuffer());
+      const inner = [];
+      for (const e of Object.values(zip.files)) {
+        const base = e.name.split('/').pop();
+        if (e.dir || e.name.startsWith('__MACOSX/') || base.startsWith('._') || base.startsWith('~$')) continue;
+        if (isSheet(base) || (isZip(base) && depth < 3)) {
+          const buf = await e.async('arraybuffer');
+          inner.push({ name: base, zipName: f.name, arrayBuffer: async () => buf, text: async () => new TextDecoder('utf-8').decode(buf) });
+        }
+      }
+      if (!inner.length) problems.push(f.name + ' has no CSV or Excel reports inside');
+      out.push(...await expandFiles(inner, problems, depth + 1));
+    } catch (err) {
+      const m = String(err && err.message || err);
+      problems.push(f.name + (/encrypt/i.test(m) ? ' is password-protected. Unzip it first, or save it without a password'
+        : /compression|unsupported/i.test(m) ? ' uses a compression method the browser cannot open (often .zipx). In WinZip save it as a normal .zip (Legacy / Deflate)'
+        : ' could not be opened (' + m + ')'));
+    }
+  }
+  return out;
+}
 async function readFile(file) {
   let wb;
   if (/\.csv$/i.test(file.name)) {
@@ -554,60 +840,109 @@ async function readFile(file) {
   }
   return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '', raw: true });
 }
-async function handleFiles(files) {
-  if (!files.length) return;
-  if (!window.XLSX) { status('The file reader did not load. Reload the page and try again.', true); return; }
-  status('Reading ' + files.length + ' file' + (files.length > 1 ? 's' : '') + '…');
-  const days = {};
-  const problems = [];
-  for (const f of files) {
-    try {
-      const { rows, missing } = normalizeRows(await readFile(f));
-      if (missing.length) { problems.push(f.name + ' is missing columns: ' + missing.join(', ')); continue; }
-      if (!rows.length) { problems.push(f.name + ' has no rows with a date'); continue; }
-      const g = groupDays(rows);
-      for (const id in g) { if (days[id]) days[id].rows.push(...g[id].rows); else days[id] = { ...g[id], fileName: f.name }; }
-    } catch (e) { problems.push(f.name + ' could not be read (' + (e.message || e) + ')'); }
-  }
-  const ids = Object.keys(days);
-  if (!ids.length) { status(problems.join('. ') || 'No rows found.', true); return; }
-  let replaced = 0, saved = 0;
-  for (const id of ids) {
-    if (state.docs[id]) replaced++;
-    const body = { ...days[id], uploadedAt: new Date().toISOString() };
-    if (state.db) {
-      try { await state.db.collection('days').doc(id).set(body); saved++; }
-      catch (e) {
-        if (e && e.code === 'invalid_argument') { state.canWrite = false; status('You have view access only, so uploads can’t be saved. Ask the owner for edit access.', true); return; }
-        if (e && e.code === 'quota_exceeded') { status('Storage is full. Remove some old days, then upload again.', true); return; }
-        problems.push(id + ' not saved (' + (e && e.code || 'error') + ')');
-      }
-    } else { state.docs[id] = body; saved++; }
-  }
-  const months = [...new Set(ids.map(i => days[i].month))].sort();
-  state.month = months[months.length - 1];
-  const stations = [...new Set(ids.map(i => days[i].code))];
-  status(`Saved ${saved} day${saved === 1 ? '' : 's'} for ${stations.join(', ')}` + (replaced ? ` (${replaced} replaced an earlier upload)` : '') + (state.db ? '' : ', for this visit only because storage is not available here') + (problems.length ? '. ' + problems.join('. ') : '.'), problems.length > 0);
-  render();
+function targetCompany(dsp) {
+  const code = String(dsp).toUpperCase();
+  const match = state.companies.find(c => codesOf(c).includes(code));
+  if (match) return match.id;
+  return state.company && state.company !== 'all' ? state.company : null;
+}
+let uploading = false;
+async function handleFiles(picked) {
+  if (!picked.length || uploading) return;
+  if (!window.XLSX) { status('The file reader did not load. Check the internet connection and reload.', true); return; }
+  uploading = true;
+  try {
+    const problems = [];
+    status('Opening ' + picked.length + ' file' + (picked.length > 1 ? 's' : '') + '…');
+    const files = await expandFiles(picked, problems);
+    // read every report; collect rows per day (date + station + DSP)
+    const days = {};
+    for (const f of files) {
+      try {
+        const { rows, missing } = normalizeRows(await readFile(f));
+        const label = f.zipName ? f.zipName + ' › ' + f.name : f.name;
+        if (missing.length) { problems.push(label + ' is missing columns: ' + missing.join(', ')); continue; }
+        if (!rows.length) { problems.push(label + ' has no rows with a date'); continue; }
+        const g = groupDays(rows);
+        for (const id in g) {
+          if (!days[id]) days[id] = { ...g[id], rows: [], files: new Set() };
+          days[id].rows.push(...g[id].rows); days[id].files.add(label);
+        }
+      } catch (e) { problems.push(f.name + ' could not be read (' + (e.message || e) + ')'); }
+    }
+    const ids = Object.keys(days).sort();
+    if (!ids.length) { status(problems.join('. ') || 'No rows found.', true); return; }
+    status('Checking ' + ids.length + ' day' + (ids.length > 1 ? 's' : '') + ' against saved records…');
+    const per = {}, unmatched = new Set();
+    let added = 0, updated = 0, dup = 0, unchangedDays = 0;
+    for (const id of ids) {
+      const day = days[id];
+      const cid = targetCompany(day.dsp);
+      if (!cid) { unmatched.add(day.dsp); continue; }
+      try {
+        const existing = (cid === state.company ? state.docs[id] : null) || await state.store.getDay(cid, id);
+        const inBatch = mergeRows([], day.rows);            // duplicates inside the uploaded files
+        const m = mergeRows(existing ? existing.rows : [], inBatch.rows); // duplicates against saved records
+        dup += inBatch.dup + inBatch.updated + m.dup; added += m.added; updated += m.updated;
+        if (existing && !m.added && !m.updated) { unchangedDays++; continue; }
+        const { files: fset, rows: _r, ...meta } = day;
+        await state.store.setDay(cid, id, {
+          ...meta, rows: m.rows,
+          fileName: [...fset].join(', '),
+          uploadedAt: new Date().toISOString(), uploadedBy: state.userEmail || '',
+          ...(existing ? { firstUploadedAt: existing.firstUploadedAt || existing.uploadedAt || '' } : { firstUploadedAt: new Date().toISOString() })
+        });
+        per[cid] = (per[cid] || 0) + 1;
+      } catch (e) { problems.push(id + ' not saved (' + (e.code || e.message || 'error') + ')'); }
+    }
+    if (unmatched.size) problems.push('No company has DSP code ' + [...unmatched].join(', ') + '. Add it under Manage companies, or pick a company first');
+    const parts = [];
+    if (added) parts.push(added + ' new shift' + (added === 1 ? '' : 's'));
+    if (updated) parts.push(updated + ' updated with newer data');
+    if (dup) parts.push(dup + ' duplicate' + (dup === 1 ? '' : 's') + ' skipped');
+    const where = Object.entries(per).map(([cid, n]) => (companyById(cid)?.name || cid) + ' (' + n + ' day' + (n === 1 ? '' : 's') + ')');
+    let msg = (files.length > 1 ? files.length + ' reports read. ' : '') + (parts.length ? parts.join(', ') + '.' : 'Nothing new.');
+    if (where.length) msg += ' Saved to ' + where.join(', ') + '.';
+    if (unchangedDays) msg += ' ' + unchangedDays + ' day' + (unchangedDays === 1 ? ' was' : 's were') + ' already up to date.';
+    if (problems.length) msg += ' ' + problems.join('. ') + '.';
+    const months = [...new Set(ids.map(i => days[i].month))].sort();
+    const cids = Object.keys(per);
+    if (cids.length === 1 && state.company !== cids[0]) selectCompany(cids[0]);
+    state.month = months[months.length - 1];
+    if (state.company === 'all') loadOverview();
+    status(msg, problems.length > 0);
+    render();
+  } finally { uploading = false; }
 }
 
-/* ---------- export ---------- */
-async function exportCsv() {
-  const a = aggregate(filtered());
+/* ================= Export ================= */
+function downloadCsv(lines, name) {
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob); link.download = name;
+  document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+}
+function exportCsv() {
   const q = s => '"' + String(s).replace(/"/g, '""') + '"';
-  const L = [['Section', 'Date', 'Station', 'DSP', 'Name', 'Route', 'In (German time)', 'Out (German time)', 'Days', 'Routes', 'Planned h', 'Actual h', 'h:mm', 'Km', 'Packages', 'Returned', 'Pickups'].join(';')];
   const tail = t => [fmtH(t.plannedH), fmtH(t.actualH), fmtHM(t.actualH), fmtN(t.km), t.pkgs, t.returned, t.pickups].join(';');
+  if (state.company === 'all') {
+    const L = [['Company', 'DSP codes', 'Station-days', 'Routes', 'Planned h', 'Actual h', 'h:mm', 'Km', 'Packages', 'Returned', 'Pickups'].join(';')];
+    for (const { c, a } of state.overview || []) L.push([q(c.name), q(codesOf(c).join(', ')), a.perDay.length, a.routes, tail(a)].join(';'));
+    return downloadCsv(L, `hours-all-companies-${state.month}.csv`);
+  }
+  const a = aggregate(filtered());
+  const co = companyById(state.company)?.name || '';
+  const L = [['Section', 'Date', 'Station', 'DSP', 'Name', 'Route', 'In (German time)', 'Out (German time)', 'Days', 'Routes', 'Planned h', 'Actual h', 'h:mm', 'Km', 'Packages', 'Returned', 'Pickups'].join(';')];
   for (const s of Object.values(a.stations)) L.push(['Station', '', s.code, s.dsp, q(s.name), '', '', '', s.days, s.routes, tail(s)].join(';'));
   for (const d of Object.values(a.drivers)) L.push(['Driver', '', d.code, d.dsp, q(d.name), '', '', '', d.days.size, d.routes, tail(d)].join(';'));
   for (const { doc, r } of a.perDay.sort((x, y) => x.doc.date.localeCompare(y.doc.date))) L.push(['Day', doc.date, doc.code, doc.dsp, '', '', '', '', 1, r.routes, tail(r)].join(';'));
   for (const s of a.shifts) L.push(['Shift', s.date, s.code, s.dsp, q(s.driver), s.route, berlin(s.inMs), berlin(s.outMs), '', '', fmtH(s.plannedH), s.hours == null ? '' : fmtH(s.hours), s.hours == null ? '' : fmtHM(s.hours), s.km, s.pkgs, s.returned, s.pickups].join(';'));
-  L.push(['Total', '', '', '', '', '', '', '', a.days.size, a.routes, tail(a)].join(';'));
-  try {
-    await state.downloads.save({ filename: `hours-${state.month}${state.station !== 'all' ? '-' + state.station : ''}.csv`, data: '﻿' + L.join('\r\n') });
-  } catch (e) { if (e && e.code !== 'cancelled' && e.code !== 'declined') status('Export did not finish (' + (e.code || 'error') + ').', true); }
+  L.push(['Total', '', '', '', q(co), '', '', '', a.days.size, a.routes, tail(a)].join(';'));
+  downloadCsv(L, `hours-${co.replace(/[^\w-]+/g, '_')}-${state.month}${state.station !== 'all' ? '-' + state.station : ''}.csv`);
 }
 
-/* ---------- wiring ---------- */
+/* ================= Wiring ================= */
 const drop = $('drop'), fileIn = $('file');
 drop.addEventListener('click', () => fileIn.click());
 drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileIn.click(); } });
@@ -615,57 +950,90 @@ fileIn.addEventListener('change', () => { handleFiles([...fileIn.files]); fileIn
 ['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
 ['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
 drop.addEventListener('drop', e => handleFiles([...e.dataTransfer.files]));
-$('fMonth').addEventListener('change', e => { state.month = e.target.value; render(); });
+$('fCompany').addEventListener('change', e => selectCompany(e.target.value));
+$('fMonth').addEventListener('change', e => { state.month = e.target.value; if (state.company === 'all') loadOverview(); render(); });
 $('fStation').addEventListener('change', e => { state.station = e.target.value; render(); });
 $('fDsp').addEventListener('change', e => { state.dsp = e.target.value; render(); });
-document.querySelectorAll('[role=tab]').forEach(t => t.addEventListener('click', () => { state.tab = t.id.slice(4); render(); }));
+document.querySelectorAll('[role=tab]').forEach(t => t.addEventListener('click', () => { state.tab = t.id.slice(4); state.confirm = null; render(); }));
 document.querySelectorAll('[data-metric]').forEach(b => b.addEventListener('click', () => { state.metric = b.dataset.metric; render(); }));
-const setMode = m => { state.mode = m; try { localStorage.setItem('hl-mode', m); } catch (e) {} render(); };
+const setMode = m => { state.mode = m; try { localStorage.setItem('hl-mode', m); } catch (e) {} if (state.company === 'all') loadOverview(); render(); };
 $('mPlanned').addEventListener('click', () => setMode('planned'));
 $('mZero').addEventListener('click', () => setMode('zero'));
 $('btnExport').addEventListener('click', exportCsv);
-$('tabBody').addEventListener('click', async e => {
+$('btnCompanies').addEventListener('click', () => {
+  const p = $('companiesPanel'); p.hidden = !p.hidden; $('btnCompanies').setAttribute('aria-expanded', String(!p.hidden));
+});
+$('addCompany').addEventListener('submit', async e => {
+  e.preventDefault();
+  const name = $('cName').value.trim();
+  if (!name) { $('cName').focus(); return; }
+  const dspCodes = $('cCodes').value.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+  try {
+    const ref = await state.store.addCompany({ name, dspCodes, createdAt: new Date().toISOString() });
+    $('cName').value = ''; $('cCodes').value = '';
+    status(name + ' added.');
+    if (!state.company || state.company === 'all' || !companyById(state.company)) selectCompany(ref.id);
+  } catch (err) { status('Could not add the company (' + (err.code || err.message) + ').', true); }
+});
+document.addEventListener('click', async e => {
   const b = e.target.closest('button'); if (!b) return;
-  if (b.dataset.ask) { state.confirmDel = b.dataset.ask; render(); }
-  else if (b.dataset.cancel) { state.confirmDel = null; render(); }
-  else if (b.dataset.del) {
-    const id = b.dataset.del; state.confirmDel = null;
-    if (state.db) { try { await state.db.collection('days').doc(id).delete(); status('Removed ' + id.split('__').slice(0, 2).join(' · ') + '.'); } catch (err) { status('Could not remove that day (' + (err.code || 'error') + ').', true); } }
-    else { delete state.docs[id]; render(); }
+  if (b.dataset.arm) { state.confirm = b.dataset.arm; render(); }
+  else if (b.dataset.cancel) { state.confirm = null; render(); }
+  else if (b.dataset.run) { runAction(b.dataset.run); }
+  else if (b.dataset.open) { selectCompany(b.dataset.open); }
+  else if (b.dataset.save) {
+    const id = b.dataset.save;
+    const name = $('eName-' + id).value.trim();
+    const dspCodes = $('eCodes-' + id).value.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+    if (!name) return;
+    try { await state.store.updateCompany(id, { name, dspCodes }); state.confirm = null; status('Saved.'); }
+    catch (err) { status('Could not save (' + (err.code || err.message) + ').', true); }
+    render();
   }
 });
 
-render();
-
-/* ---------- storage: Firebase Firestore if configured, otherwise this browser ---------- */
-function localStore() {
-  const KEY = 'dsp-hours-days';
-  let data = {};
-  try { data = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) {}
-  const subs = [];
-  const emit = () => { const snap = { docs: Object.entries(data).map(([id, d]) => ({ id, data: () => d })) }; subs.forEach(f => f(snap)); };
-  const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { throw { code: 'quota_exceeded' }; } emit(); };
-  return { collection: () => ({
-    doc: id => ({ set: async body => { data[id] = body; persist(); }, delete: async () => { delete data[id]; persist(); } }),
-    onSnapshot: f => { subs.push(f); setTimeout(emit, 0); return () => {}; }
-  }) };
+/* ================= Start: login (Firebase) or demo mode ================= */
+function startApp(store) {
+  state.store = store;
+  $('login').hidden = true; $('app').hidden = false;
+  store.listenCompanies(list => {
+    state.companies = list;
+    if (state.company !== 'all' && !companyById(state.company)) {
+      selectCompany(list.length ? [...list].sort((a, b) => a.name.localeCompare(b.name))[0].id : null);
+    } else if (state.company && !state.unsubDays && state.company !== 'all') {
+      selectCompany(state.company);
+    } else render();
+  }, err => status('Could not load companies (' + (err.code || err.message) + '). Check the Firestore rules.', true));
 }
-(function initStorage() {
-  const cfg = window.FIREBASE_CONFIG;
-  if (cfg && cfg.apiKey && window.firebase) {
-    try {
-      firebase.initializeApp(cfg);
-      state.db = firebase.firestore();
-      $('storeNote').textContent = 'Saved online (Firebase), shared with everyone who opens this page.';
-    } catch (e) { state.db = localStore(); $('storeNote').textContent = 'Firebase could not start, so data is saved in this browser only.'; }
-  } else {
-    state.db = localStore();
-    $('storeNote').textContent = 'Saved in this browser only. Add a Firebase config to share data across devices.';
-  }
-  state.db.collection('days').onSnapshot(snap => {
-    const next = {};
-    for (const d of snap.docs) next[d.id] = d.data();
-    state.docs = next; state.loaded = true; render();
-  }, err => { status('Saved reports stopped updating (' + (err.code || err.message) + '). Reload the page.', true); });
-})();
+const cfg = window.FIREBASE_CONFIG || {};
+if (cfg.apiKey && window.firebase) {
+  firebase.initializeApp(cfg);
+  const auth = firebase.auth();
+  const showErr = msg => { const el = $('lErr'); el.hidden = !msg; el.textContent = msg || ''; };
+  const authMsg = c => ({ 'auth/invalid-credential': 'Email or password is wrong.', 'auth/wrong-password': 'Email or password is wrong.', 'auth/user-not-found': 'Email or password is wrong.', 'auth/invalid-email': 'Enter a valid email address.', 'auth/too-many-requests': 'Too many attempts. Wait a few minutes and try again.', 'auth/network-request-failed': 'No connection. Check the internet and try again.' }[c] || 'Sign-in failed (' + c + ').');
+  $('loginForm').addEventListener('submit', async e => {
+    e.preventDefault(); showErr('');
+    $('lBtn').disabled = true; $('lBtn').textContent = 'Signing in…';
+    try { await auth.signInWithEmailAndPassword($('lEmail').value.trim(), $('lPass').value); }
+    catch (err) { showErr(authMsg(err.code)); }
+    $('lBtn').disabled = false; $('lBtn').textContent = 'Sign in';
+  });
+  $('lReset').addEventListener('click', async () => {
+    const email = $('lEmail').value.trim();
+    if (!email) { showErr('Enter your email first, then click Forgot password.'); return; }
+    try { await auth.sendPasswordResetEmail(email); showErr(''); const el = $('lErr'); el.hidden = false; el.classList.remove('err'); el.textContent = 'A reset link was sent to ' + email + '.'; }
+    catch (err) { showErr(authMsg(err.code)); }
+  });
+  $('btnSignOut').addEventListener('click', () => auth.signOut().then(() => location.reload()));
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      state.userEmail = user.email;
+      $('userEmail').textContent = user.email; $('btnSignOut').hidden = false;
+      if (!state.store) startApp(firebaseStore(firebase.firestore()));
+    } else { $('app').hidden = true; $('login').hidden = false; }
+  });
+} else {
+  $('demoBanner').hidden = false;
+  startApp(localStore());
+}
 </script></body></html>
